@@ -1,0 +1,13 @@
+# .NET 构建输出
+bin/
+obj/
+publish/
+*.user
+
+# 运行时生成（exe 同目录配置 / WebView2 缓存）
+config.json
+
+# 旧的 Python 实现遗留
+.venv/
+__pycache__/
+test_screenshot.png

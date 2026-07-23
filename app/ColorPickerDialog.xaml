@@ -1,0 +1,157 @@
+<Window x:Class="AIQuotaMonitor.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pick a color" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" Background="#1B1B22">
+    <Window.Resources>
+
+        <!-- 深色主题（与设置窗口一致，本窗口作用域） -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#15151C"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="CaretBrush" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4F8CFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#2C2C38"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsDefault" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4F8CFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="#4F8CFF" CornerRadius="2"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="#33FFFFFF" CornerRadius="2"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Width="14" Height="14" CornerRadius="7"
+                                                        Background="#E8E8EC"
+                                                        BorderBrush="#4F8CFF" BorderThickness="1"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="14" MinWidth="330">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 大色块预览 -->
+        <Border x:Name="PreviewBox" Height="52" CornerRadius="6"
+                BorderBrush="#33FFFFFF" BorderThickness="1"/>
+
+        <!-- hex 输入 + 屏幕取色 -->
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,10,0,0">
+            <TextBlock Text="#" VerticalAlignment="Center" Foreground="#8A8A95" FontFamily="Consolas"/>
+            <TextBox x:Name="HexBox" Width="84" Margin="4,0,0,0" MaxLength="6"
+                     FontFamily="Consolas" TextChanged="HexBox_TextChanged"/>
+            <Button x:Name="BtnScreenPick" Content="Pick from screen" Margin="16,0,0,0" Click="ScreenPick_Click"/>
+        </StackPanel>
+
+        <!-- RGB 滑块 -->
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="34"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="R" Foreground="#E5534B" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <Slider x:Name="SliderR" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="255"
+                    ValueChanged="Slider_ValueChanged"/>
+            <TextBlock x:Name="ValR" Grid.Row="0" Grid.Column="2" Margin="8,0,0,0"
+                       VerticalAlignment="Center" FontFamily="Consolas"/>
+            <TextBlock Grid.Row="1" Text="G" Foreground="#3FB950" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,6,0,0"/>
+            <Slider x:Name="SliderG" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="255"
+                    Margin="0,6,0,0" ValueChanged="Slider_ValueChanged"/>
+            <TextBlock x:Name="ValG" Grid.Row="1" Grid.Column="2" Margin="8,6,0,0"
+                       VerticalAlignment="Center" FontFamily="Consolas"/>
+            <TextBlock Grid.Row="2" Text="B" Foreground="#4F8CFF" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,6,0,0"/>
+            <Slider x:Name="SliderB" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="255"
+                    Margin="0,6,0,0" ValueChanged="Slider_ValueChanged"/>
+            <TextBlock x:Name="ValB" Grid.Row="2" Grid.Column="2" Margin="8,6,0,0"
+                       VerticalAlignment="Center" FontFamily="Consolas"/>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="BtnOk" Content="OK" Width="80" IsDefault="True" Click="Ok_Click"/>
+            <Button x:Name="BtnCancel" Content="Cancel" Width="80" Margin="8,0,0,0" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

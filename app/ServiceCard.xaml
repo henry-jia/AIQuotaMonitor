@@ -1,0 +1,32 @@
+<UserControl x:Class="AIQuotaMonitor.ServiceCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border x:Name="CardRoot" CornerRadius="10" Background="#0DFFFFFF" Padding="12,10" SnapsToDevicePixels="True">
+        <StackPanel>
+            <DockPanel>
+                <Button x:Name="CardRefreshButton" DockPanel.Dock="Right" Content="⟳"
+                        Style="{StaticResource IconButtonStyle}" ToolTip="Refresh this service"
+                        Click="CardRefresh_Click"/>
+                <Button x:Name="CardPauseButton" DockPanel.Dock="Right" Content="⏸"
+                        Style="{StaticResource IconButtonStyle}" ToolTip="Pause scraping"
+                        Click="CardPause_Click"/>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="Dot" Width="9" Height="9"/>
+                    <TextBlock x:Name="NameText" Margin="8,0,0,0" Foreground="#EDEDF2" FontSize="13" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="PausedBadge" Margin="8,0,0,0" Foreground="#8A8A95" FontSize="10.5"
+                               VerticalAlignment="Center" Visibility="Collapsed"/>
+                </StackPanel>
+            </DockPanel>
+            <TextBlock x:Name="SubText" Margin="17,3,0,0" Foreground="#8A8A95" FontSize="10.5" Visibility="Collapsed"/>
+            <StackPanel x:Name="RowsPanel" Margin="0,9,0,0"/>
+            <StackPanel x:Name="NeedLoginPanel" Visibility="Collapsed" Margin="0,9,0,1">
+                <TextBlock x:Name="NeedLoginText" Text="Not signed in; quota cannot be read." Foreground="#C9C9D1" FontSize="11.5" TextWrapping="Wrap"/>
+                <Button x:Name="NeedLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Login_Click"/>
+            </StackPanel>
+            <StackPanel x:Name="ErrorPanel" Visibility="Collapsed" Margin="0,9,0,1">
+                <TextBlock x:Name="ErrorText" Foreground="#E5534B" FontSize="11" TextWrapping="Wrap"/>
+                <Button x:Name="ErrorLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Login_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

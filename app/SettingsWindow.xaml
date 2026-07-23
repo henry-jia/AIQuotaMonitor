@@ -1,0 +1,741 @@
+<Window x:Class="AIQuotaMonitor.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings - AIQuotaMonitor" Width="860" Height="640" MinWidth="740" MinHeight="540"
+        WindowStartupLocation="CenterOwner" Background="#1B1B22">
+    <Window.Resources>
+
+        <!-- ===== 设置窗口深色主题（仅本窗口作用域，不影响主窗口） ===== -->
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#C9C9D1"/>
+        </Style>
+
+        <!-- 文本 -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+        </Style>
+
+        <!-- 分组卡片 -->
+        <Style TargetType="GroupBox">
+            <Setter Property="Background" Value="#23232C"/>
+            <Setter Property="BorderBrush" Value="#22FFFFFF"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <ContentPresenter ContentSource="Header" Margin="2,0,0,6"
+                                              TextBlock.Foreground="#C9C9D1" TextBlock.FontWeight="SemiBold"/>
+                            <Border Grid.Row="1" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                    CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 输入框 -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#15151C"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="CaretBrush" Value="#E8E8EC"/>
+            <Setter Property="SelectionBrush" Value="#4F8CFF"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#55FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4F8CFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 下拉框 -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#15151C"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton" Focusable="False" ClickMode="Press"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                                CornerRadius="4">
+                                            <Path x:Name="Arrow" Data="M 0 0 L 4.5 4.5 L 9 0 Z" Fill="#8A8A95"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#55FFFFFF"/>
+                                                <Setter TargetName="Arrow" Property="Fill" Value="#C9C9D1"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4F8CFF"/>
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="Arrow" Property="Fill" Value="#6A6A75"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="8,3,26,3" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <TextBox x:Name="PART_EditableTextBox" Style="{x:Null}" Visibility="Hidden"
+                                     Margin="6,1,24,1" VerticalContentAlignment="Center"
+                                     Background="Transparent" Foreground="{TemplateBinding Foreground}"
+                                     CaretBrush="#E8E8EC" BorderThickness="0"
+                                     IsReadOnly="{TemplateBinding IsReadOnly}"/>
+                            <Popup x:Name="Popup" Placement="Bottom" Focusable="False" AllowsTransparency="True"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
+                                <Border x:Name="DropDownBorder" Background="#23232C"
+                                        BorderBrush="#33FFFFFF" BorderThickness="1"
+                                        CornerRadius="6" Padding="3"
+                                        MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="DropDownBorder" Property="MinWidth" Value="0"/>
+                            </Trigger>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 列表 -->
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="#15151C"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="4">
+                            <ScrollViewer Focusable="False" Padding="2">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2C2C38"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 按钮（默认按钮用强调色） -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#2C2C38"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#23232C"/>
+                            </Trigger>
+                            <Trigger Property="IsDefault" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4F8CFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#23232C"/>
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 色板按钮（颜色主题区）：整块显示颜色本身 -->
+        <Style x:Key="SwatchButton" TargetType="Button">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="4"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#99FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 复选框 -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Box" Width="15" Height="15" VerticalAlignment="Center"
+                                    Background="#15151C" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
+                                <TextBlock x:Name="Mark" Text="✓" FontSize="11" FontWeight="Bold"
+                                           Foreground="#4F8CFF" Margin="0,-1,0,0"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="7,0,0,0"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#4F8CFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 单选框 -->
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Box" Width="15" Height="15" VerticalAlignment="Center"
+                                    Background="#15151C" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    CornerRadius="7.5">
+                                <Ellipse x:Name="Mark" Width="7" Height="7" Fill="#4F8CFF"
+                                         Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="7,0,0,0"
+                                              VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#4F8CFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 滑块 -->
+        <Style TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="#4F8CFF" CornerRadius="2"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="#33FFFFFF" CornerRadius="2"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Width="14" Height="14" CornerRadius="7"
+                                                        Background="#E8E8EC"
+                                                        BorderBrush="#4F8CFF" BorderThickness="1"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 选项卡 -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid KeyboardNavigation.TabNavigation="Local">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TabPanel x:Name="HeaderPanel" Grid.Row="0" IsItemsHost="True"
+                                      Margin="0,0,0,8" KeyboardNavigation.TabIndex="1"/>
+                            <Border Grid.Row="1" Background="{TemplateBinding Background}"
+                                    KeyboardNavigation.TabIndex="2"
+                                    KeyboardNavigation.DirectionalNavigation="Contained"
+                                    KeyboardNavigation.TabNavigation="Local">
+                                <ContentPresenter ContentSource="SelectedContent"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#8A8A95"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="5"
+                                Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"
+                                              HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter Property="Foreground" Value="#C9C9D1"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#23232C"/>
+                                <Setter Property="Foreground" Value="#E8E8EC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6A6A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl x:Name="MainTabs">
+
+            <!-- ===== Tab 1：服务 ===== -->
+            <TabItem x:Name="TabServices" Header="Services">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左侧：服务列表 -->
+                    <DockPanel>
+                        <TextBlock x:Name="ServiceListLabel" DockPanel.Dock="Top" Text="Services" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <UniformGrid DockPanel.Dock="Bottom" Columns="2" Margin="0,8,0,0">
+                            <Button x:Name="BtnAddService" Content="Add" Margin="0,0,3,3" Click="AddService_Click"/>
+                            <Button x:Name="BtnRemoveService" Content="Remove" Margin="3,0,0,3" Click="RemoveService_Click"/>
+                            <Button x:Name="BtnMoveServiceUp" Content="Up" Margin="0,3,3,0" Click="MoveServiceUp_Click"/>
+                            <Button x:Name="BtnMoveServiceDown" Content="Down" Margin="3,3,0,0" Click="MoveServiceDown_Click"/>
+                        </UniformGrid>
+                        <ListBox x:Name="ServiceList" DisplayMemberPath="Name" SelectionChanged="ServiceList_SelectionChanged"/>
+                    </DockPanel>
+
+                    <!-- 右侧：编辑区 -->
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="ServiceEditor" IsEnabled="False">
+
+                            <GroupBox x:Name="GroupService" Header="Service" Padding="10">
+                                <StackPanel>
+                                    <CheckBox x:Name="EnableServiceCheck" Content="Enable this service"
+                                              IsChecked="{Binding SelectedItem.Enabled, ElementName=ServiceList, Mode=TwoWay}"
+                                              Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="PauseServiceCheck" Content="Pause scraping for this service"
+                                              IsChecked="{Binding SelectedItem.Paused, ElementName=ServiceList, Mode=TwoWay}"
+                                              Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock x:Name="LblName" Grid.Row="0" Text="Name" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.Name, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBlock x:Name="LblUrl" Grid.Row="1" Text="URL" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.Url, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBlock x:Name="LblExtraWait" Grid.Row="2" Text="Extra wait (sec)" Style="{StaticResource FieldLabel}"
+                                                   ToolTip="Seconds to wait after page load; 2~5s recommended for SPA pages"/>
+                                        <TextBox x:Name="ExtraWaitBox" Grid.Row="2" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.ExtraWaitSeconds, ElementName=ServiceList}"
+                                                 ToolTip="Seconds to wait after page load; 2~5s recommended for SPA pages"/>
+                                        <TextBlock x:Name="LblLoginIndicator" Grid.Row="3" Text="Logged-out selector" Style="{StaticResource FieldLabel}"
+                                                   ToolTip="Optional. If this CSS selector matches on the page, the service is treated as logged out, e.g. .login-btn"/>
+                                        <TextBox x:Name="LoginIndicatorBox" Grid.Row="3" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.LoginIndicatorSelector, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Optional. If this CSS selector matches on the page, the service is treated as logged out, e.g. .login-btn"/>
+                                        <TextBlock x:Name="LblSvcInterval" Grid.Row="4" Text="Refresh interval (min)" Style="{StaticResource FieldLabel}"
+                                                   ToolTip="Optional. Leave empty to use the global refresh interval"/>
+                                        <TextBox x:Name="SvcIntervalBox" Grid.Row="4" Grid.Column="1" Margin="0,3"
+                                                 ToolTip="Optional. Leave empty to use the global refresh interval"
+                                                 TextChanged="SvcIntervalBox_TextChanged"/>
+                                        <TextBlock x:Name="LblSubUrl" Grid.Row="5" Text="Subscription URL" Style="{StaticResource FieldLabel}"
+                                                   ToolTip="Optional. Page containing subscription expiry/auto-renew info; empty = search on the usage page"/>
+                                        <TextBox x:Name="SubUrlBox" Grid.Row="5" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.SubscriptionUrl, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Optional. Page containing subscription expiry/auto-renew info; empty = search on the usage page"/>
+                                    </Grid>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox x:Name="GroupRules" Header="Quota rules" Padding="10" Margin="0,10,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <DockPanel>
+                                        <UniformGrid DockPanel.Dock="Bottom" Columns="2" Margin="0,8,0,0">
+                                            <Button x:Name="BtnAddRule" Content="Add" Margin="0,0,3,3" Click="AddRule_Click"/>
+                                            <Button x:Name="BtnRemoveRule" Content="Remove" Margin="3,0,0,3" Click="RemoveRule_Click"/>
+                                            <Button x:Name="BtnMoveRuleUp" Content="Up" Margin="0,3,3,0" Click="MoveRuleUp_Click"/>
+                                            <Button x:Name="BtnMoveRuleDown" Content="Down" Margin="3,3,0,0" Click="MoveRuleDown_Click"/>
+                                        </UniformGrid>
+                                        <ListBox x:Name="RuleList" DisplayMemberPath="Label" MinHeight="170"
+                                                 SelectionChanged="RuleList_SelectionChanged"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="RuleEditor" Grid.Column="2" IsEnabled="False">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock x:Name="LblRuleLabel" Grid.Row="0" Text="Label" Style="{StaticResource FieldLabel}"
+                                                       ToolTip="Name shown on the card; also the default locate anchor"/>
+                                            <TextBox x:Name="RuleLabelBox" Grid.Row="0" Grid.Column="1" Margin="0,3"
+                                                     Text="{Binding SelectedItem.Label, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Name shown on the card; also the default locate anchor"/>
+                                            <TextBlock x:Name="LblMatchText" Grid.Row="1" Text="Match text" Style="{StaticResource FieldLabel}"
+                                                       ToolTip="Optional. Empty = locate by label; use | for aliases"/>
+                                            <TextBox x:Name="MatchTextBox" Grid.Row="1" Grid.Column="1" Margin="0,3"
+                                                     Text="{Binding SelectedItem.MatchText, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Optional. Empty = locate by label; use | for aliases"/>
+                                            <TextBlock x:Name="LblType" Grid.Row="2" Text="Type" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox x:Name="RuleTypeCombo" Grid.Row="2" Grid.Column="1" Margin="0,3"
+                                                      SelectionChanged="RuleTypeCombo_SelectionChanged">
+                                                <ComboBoxItem x:Name="RuleTypeItemPercent" Content="Percent (e.g. 42%)"/>
+                                                <ComboBoxItem x:Name="RuleTypeItemFraction" Content="Fraction (e.g. 12 / 50)"/>
+                                            </ComboBox>
+                                            <TextBlock x:Name="LblSelector" Grid.Row="3" Text="CSS selector" Style="{StaticResource FieldLabel}"
+                                                       ToolTip="Empty (recommended) = auto-locate by label/match text"/>
+                                            <TextBox x:Name="SelectorBox" Grid.Row="3" Grid.Column="1" Margin="0,3" FontFamily="Consolas"
+                                                     Text="{Binding SelectedItem.Selector, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Empty (recommended) = auto-locate by label/match text"/>
+                                            <TextBlock x:Name="LblPattern" Grid.Row="4" Text="Regex" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox x:Name="RulePatternBox" Grid.Row="4" Grid.Column="1" Margin="0,3" FontFamily="Consolas"
+                                                     Text="{Binding SelectedItem.Pattern, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock x:Name="LblResetSelector" Grid.Row="5" Text="Reset selector" Style="{StaticResource FieldLabel}"
+                                                       ToolTip="Optional. CSS selector for the reset-time text; empty = match the whole page"/>
+                                            <TextBox x:Name="ResetSelectorBox" Grid.Row="5" Grid.Column="1" Margin="0,3" FontFamily="Consolas"
+                                                     Text="{Binding SelectedItem.ResetSelector, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Optional. CSS selector for the reset-time text; empty = match the whole page"/>
+                                            <TextBlock x:Name="LblResetPattern" Grid.Row="6" Text="Reset regex" Style="{StaticResource FieldLabel}"
+                                                       ToolTip="Optional. Empty = auto-detect; first capture group is the display text"/>
+                                            <TextBox x:Name="ResetPatternBox" Grid.Row="6" Grid.Column="1" Margin="0,3" FontFamily="Consolas"
+                                                     Text="{Binding SelectedItem.ResetPattern, ElementName=RuleList, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Optional. Empty = auto-detect; first capture group is the display text"/>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock x:Name="PresetsLabel" Text="Presets:" VerticalAlignment="Center"/>
+                                            <Button x:Name="BtnPresetPercent" Content="Percent %" Padding="8,2" Margin="4,0,0,0" Click="PresetPercent_Click"/>
+                                            <Button x:Name="BtnPresetFraction" Content="a/b fraction" Padding="8,2" Margin="4,0,0,0" Click="PresetFraction_Click"/>
+                                        </StackPanel>
+                                        <CheckBox x:Name="InvertCheck" Margin="0,6,0,0"
+                                                  Content="Value is remaining percent (e.g. 73% remaining → shows 27% used)"
+                                                  IsChecked="{Binding SelectedItem.Invert, ElementName=RuleList, Mode=TwoWay}"
+                                                  ToolTip="Percent type only. Enable when the page shows remaining instead of used"/>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
+                            <GroupBox x:Name="GroupTest" Header="Test scrape" Padding="10" Margin="0,10,0,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="TestButton" Content="Test scrape with current service config" Padding="10,4" Click="TestScrape_Click"/>
+                                        <TextBlock x:Name="TestHintText" Text="  Opens the real page and scrapes it; results appear below."
+                                                   VerticalAlignment="Center" Foreground="#8A8A95" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <TextBox x:Name="TestOutput" Margin="0,8,0,0" MinHeight="120" IsReadOnly="True"
+                                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                             FontFamily="Consolas" FontSize="11"/>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- ===== Tab 2：全局设置 ===== -->
+            <TabItem x:Name="TabGlobal" Header="Global settings">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <GroupBox x:Name="GroupGlobal" Header="Global settings" Padding="10">
+                        <StackPanel>
+                            <!-- 颜色主题：预设 + 自定义色板 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock x:Name="ThemeLabel" Text="Color theme" Width="90" Style="{StaticResource FieldLabel}"/>
+                                <ComboBox x:Name="ThemeCombo" Width="170" SelectionChanged="ThemeCombo_SelectionChanged">
+                                    <ComboBoxItem x:Name="ThemeItemAzure" Tag="azure"/>
+                                    <ComboBoxItem x:Name="ThemeItemEmerald" Tag="emerald"/>
+                                    <ComboBoxItem x:Name="ThemeItemViolet" Tag="violet"/>
+                                    <ComboBoxItem x:Name="ThemeItemSunset" Tag="sunset"/>
+                                    <ComboBoxItem x:Name="ThemeItemGraphite" Tag="graphite"/>
+                                    <ComboBoxItem x:Name="ThemeItemCustom" Tag="custom"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel x:Name="ThemeSwatches" Margin="0,6,0,2">
+                                <StackPanel Orientation="Horizontal" Margin="0,3">
+                                    <TextBlock x:Name="SwatchLblAccent" Width="90" Style="{StaticResource FieldLabel}"/>
+                                    <Button x:Name="SwatchAccent" Tag="Accent" Style="{StaticResource SwatchButton}"
+                                            Width="36" Height="22" Click="Swatch_Click"/>
+                                    <TextBlock x:Name="HexAccent" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="#8A8A95"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,3">
+                                    <TextBlock x:Name="SwatchLblNormal" Width="90" Style="{StaticResource FieldLabel}"/>
+                                    <Button x:Name="SwatchNormal" Tag="Normal" Style="{StaticResource SwatchButton}"
+                                            Width="36" Height="22" Click="Swatch_Click"/>
+                                    <TextBlock x:Name="HexNormal" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="#8A8A95"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,3">
+                                    <TextBlock x:Name="SwatchLblNear" Width="90" Style="{StaticResource FieldLabel}"/>
+                                    <Button x:Name="SwatchNear" Tag="Near" Style="{StaticResource SwatchButton}"
+                                            Width="36" Height="22" Click="Swatch_Click"/>
+                                    <TextBlock x:Name="HexNear" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="#8A8A95"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,3">
+                                    <TextBlock x:Name="SwatchLblAhead" Width="90" Style="{StaticResource FieldLabel}"/>
+                                    <Button x:Name="SwatchAhead" Tag="Ahead" Style="{StaticResource SwatchButton}"
+                                            Width="36" Height="22" Click="Swatch_Click"/>
+                                    <TextBlock x:Name="HexAhead" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="#8A8A95"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,3">
+                                    <TextBlock x:Name="SwatchLblCritical" Width="90" Style="{StaticResource FieldLabel}"/>
+                                    <Button x:Name="SwatchCritical" Tag="Critical" Style="{StaticResource SwatchButton}"
+                                            Width="36" Height="22" Click="Swatch_Click"/>
+                                    <TextBlock x:Name="HexCritical" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Foreground="#8A8A95"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock x:Name="LanguageLabel" Text="Language" Width="90" Style="{StaticResource FieldLabel}"/>
+                                <ComboBox x:Name="LanguageCombo" Width="170">
+                                    <ComboBoxItem x:Name="LangItemAuto" Content="Follow system" Tag="auto"/>
+                                    <ComboBoxItem x:Name="LangItemZh" Content="中文" Tag="zh"/>
+                                    <ComboBoxItem x:Name="LangItemEn" Content="English" Tag="en"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblLayout" Text="Layout" Width="90" Style="{StaticResource FieldLabel}"/>
+                                <RadioButton x:Name="LayoutVertical" Content="Vertical" Margin="0,0,14,0"/>
+                                <RadioButton x:Name="LayoutHorizontal" Content="Horizontal"/>
+                            </StackPanel>
+                            <CheckBox x:Name="TopmostCheck" Content="Always on top" Margin="0,8,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblOpacity" Text="Opacity" Width="90" Style="{StaticResource FieldLabel}"/>
+                                <Slider x:Name="OpacitySlider" Width="220" Minimum="0.3" Maximum="1"
+                                        ValueChanged="OpacitySlider_ValueChanged"/>
+                                <TextBlock x:Name="OpacityLabel" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblGlobalInterval" Text="Global refresh interval (min)" Width="150" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="GlobalIntervalBox" Width="64"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <CheckBox x:Name="ShowRemainingCheck" VerticalAlignment="Center"
+                                          Content="Show time until reset; threshold (days):"/>
+                                <TextBox x:Name="RemainingThresholdBox" Width="44" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            </StackPanel>
+                            <CheckBox x:Name="ShowPaceCheck" Margin="0,8,0,0"
+                                      Content="Show pace baseline (bar tick = even-consumption position; red when ahead)"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <CheckBox x:Name="UnifiedFormatCheck" Content="Unify reset time format" VerticalAlignment="Center"
+                                          ToolTip="Show all reset dates in the format on the right"/>
+                                <ComboBox x:Name="DateFormatCombo" Width="170" Margin="10,0,0,0" IsEditable="True"
+                                          ToolTip=".NET date format string; pick a preset or type your own">
+                                    <ComboBoxItem Content="MM-dd HH:mm"/>
+                                    <ComboBoxItem Content="yyyy-MM-dd HH:mm"/>
+                                    <ComboBoxItem x:Name="DateFmtItemCn" Content="MM月dd日 HH:mm"/>
+                                    <ComboBoxItem Content="HH:mm"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="BtnSave" Content="Save" Width="90" IsDefault="True" Click="Save_Click"/>
+            <Button x:Name="BtnCancel" Content="Cancel" Width="90" Margin="8,0,0,0" IsCancel="True" Click="Cancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,47 @@
+<Window x:Class="AIQuotaMonitor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AIQuotaMonitor"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False">
+    <Border x:Name="Root" CornerRadius="14" Background="#E814141B"
+            BorderBrush="#22FFFFFF" BorderThickness="1"
+            MouseLeftButtonDown="Root_MouseLeftButtonDown">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="MenuRefresh" Header="Refresh now" Click="MenuRefresh_Click"/>
+                <MenuItem x:Name="MenuPause" Header="Pause scraping" IsCheckable="True" Click="MenuPause_Click"/>
+                <MenuItem x:Name="MenuTopmost" Header="Always on top" IsCheckable="True" Click="MenuTopmost_Click"/>
+                <MenuItem x:Name="MenuLayout" Header="Layout: switch to horizontal" Click="MenuLayout_Click"/>
+                <MenuItem x:Name="MenuLanguage" Header="语言 / Language">
+                    <MenuItem x:Name="MenuLangAuto" Header="Follow system" Click="MenuLangAuto_Click"/>
+                    <MenuItem x:Name="MenuLangZh" Header="中文" Click="MenuLangZh_Click"/>
+                    <MenuItem x:Name="MenuLangEn" Header="English" Click="MenuLangEn_Click"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem x:Name="MenuSettings" Header="Settings…" Click="MenuSettings_Click"/>
+                <MenuItem x:Name="MenuHide" Header="Hide window" Click="MenuHide_Click"/>
+                <Separator/>
+                <MenuItem x:Name="MenuExit" Header="Exit" Click="MenuExit_Click"/>
+            </ContextMenu>
+        </Border.ContextMenu>
+        <StackPanel Margin="14,11,14,13">
+            <Grid Margin="0,0,0,2">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="11"
+                               Margin="8,0,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="⏸" ToolTip="Pause scraping"
+                            Margin="4,0,0,0" Click="PauseButton_Click"/>
+                    <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="⟳" ToolTip="Refresh now"
+                            Margin="4,0,0,0" Click="RefreshButton_Click"/>
+                    <Button x:Name="HideButton" Style="{StaticResource IconButtonStyle}" Content="✕" ToolTip="Hide window (tray icon stays)"
+                            Margin="4,0,0,0" Click="HideButton_Click"/>
+                </StackPanel>
+            </Grid>
+            <StackPanel x:Name="CardsPanel" Margin="0,6,0,0"/>
+        </StackPanel>
+    </Border>
+</Window>
