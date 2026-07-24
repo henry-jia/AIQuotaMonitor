@@ -273,10 +273,19 @@ public partial class ServiceCard : UserControl
         };
         if (small != null)
         {
+            // 重置临近提醒：窗口大于 24 小时（7 天/30 天类）且重置时间已进入 24 小时内 → 黄色，
+            // 提醒用户窗口快重置、剩余额度尽快用。5 小时等短窗口恒 <24h，不参与以免长期黄色。
+            bool resetSoon = false;
+            if (rule.ResetAt is { } ra)
+            {
+                var windowHours = PaceBaseline.WindowHours(rule.Label);
+                resetSoon = ra > DateTime.Now.AddHours(-6) && ra <= DateTime.Now.AddHours(24) &&
+                            (windowHours == null || windowHours > 24);
+            }
             panel.Children.Add(new TextBlock
             {
                 Text = small,
-                Foreground = Ui.Brush("#8A8A95"),
+                Foreground = new SolidColorBrush(resetSoon ? theme.Near : (Color)ColorConverter.ConvertFromString("#8A8A95")),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 3, 0, 0),
             });

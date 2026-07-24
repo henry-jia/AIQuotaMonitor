@@ -107,7 +107,7 @@ public static class TestShot
                 Rules = new List<RuleResult>
                 {
                     new() { Label = "5 小时用量", Percent = 42, Detail = "2.1 / 5 小时", ResetText = "2 小时后重置", ResetAt = DateTime.Now.AddHours(2) },
-                    new() { Label = "7 天用量", Percent = 80, Detail = "5.6 / 7 天", ResetText = "4 天后重置", ResetAt = DateTime.Now.AddDays(4) },
+                    new() { Label = "7 天用量", Percent = 80, Detail = "5.6 / 7 天", ResetText = "20 小时后重置", ResetAt = DateTime.Now.AddHours(20) },
                     new() { Label = "30 天用量", Percent = 93, Detail = "27.9 / 30 天", ResetText = "20 天后重置", ResetAt = DateTime.Now.AddDays(20) },
                 },
                 Subscription = new SubscriptionInfo { ExpireAt = DateTime.Now.AddDays(31), AutoRenew = true },
