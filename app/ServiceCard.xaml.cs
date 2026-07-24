@@ -75,6 +75,7 @@ public partial class ServiceCard : UserControl
         RowsPanel.Children.Clear();
         NeedLoginPanel.Visibility = Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Collapsed;
+        RefreshTimeText.Visibility = Visibility.Collapsed;
         RowsPanel.Children.Add(new TextBlock
         {
             Text = I18n.T("loading"),
@@ -90,6 +91,11 @@ public partial class ServiceCard : UserControl
         _theme = ColorTheme.Resolve(cfg);
         SetHeader(svc);
         BindSubscription(result.Subscription);
+        // 最后刷新时间：今天只显示时分，跨天带日期（强迫症友好）
+        var t = result.Time.LocalDateTime;
+        RefreshTimeText.Text = t.Date == DateTime.Today ? t.ToString("HH:mm") : t.ToString("MM-dd HH:mm");
+        RefreshTimeText.ToolTip = I18n.T("last_refresh_tip", t.ToString("yyyy-MM-dd HH:mm:ss"));
+        RefreshTimeText.Visibility = Visibility.Visible;
         RowsPanel.Children.Clear();
         NeedLoginPanel.Visibility = result.Status == ScrapeStatus.NeedLogin ? Visibility.Visible : Visibility.Collapsed;
         ErrorPanel.Visibility = result.Status == ScrapeStatus.Error ? Visibility.Visible : Visibility.Collapsed;

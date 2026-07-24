@@ -60,6 +60,14 @@ public class AppConfig : ObservableObject
     private bool _scrapingPaused;
     public bool ScrapingPaused { get => _scrapingPaused; set => Set(ref _scrapingPaused, value); }
 
+    /// <summary>小部件背景色（hex，默认深色）。</summary>
+    private string _backgroundColor = "#E814141B";
+    public string BackgroundColor { get => _backgroundColor; set => Set(ref _backgroundColor, value); }
+
+    /// <summary>界面缩放倍数（滚轮调整，1.0 = 100%）。</summary>
+    private double _uiScale = 1.0;
+    public double UiScale { get => _uiScale; set => Set(ref _uiScale, Math.Clamp(value, 0.6, 2.0)); }
+
     /// <summary>剩余时间倒计时显示的阈值（天）：重置时间距今少于此值显示倒计时，否则显示具体日期。</summary>
     private int _remainingThresholdDays = 7;
     public int RemainingThresholdDays { get => _remainingThresholdDays; set => Set(ref _remainingThresholdDays, Math.Clamp(value, 1, 365)); }

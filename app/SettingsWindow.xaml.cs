@@ -59,6 +59,7 @@ public partial class SettingsWindow : Window
 
         ApplyTexts();
         RefreshThemeSwatches();
+        RefreshBgSwatch();
 
         if (_working.Services.Count > 0) ServiceList.SelectedIndex = 0;
     }
@@ -159,6 +160,7 @@ public partial class SettingsWindow : Window
         LayoutHorizontal.Content = I18n.T("layout_horizontal");
         TopmostCheck.Content = I18n.T("topmost");
         LblOpacity.Text = I18n.T("opacity");
+        LblBackground.Text = I18n.T("background_color");
         LblGlobalInterval.Text = I18n.T("global_interval");
         ShowRemainingCheck.Content = I18n.T("show_remaining");
         ShowPaceCheck.Content = I18n.T("show_pace");
@@ -423,6 +425,25 @@ public partial class SettingsWindow : Window
     private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (OpacityLabel != null) OpacityLabel.Text = OpacitySlider.Value.ToString("P0");
+    }
+
+    /// <summary>背景色：点击色板打开取色对话框（含屏幕取色器），即时预览。</summary>
+    private void BgSwatch_Click(object sender, RoutedEventArgs e)
+    {
+        var current = Ui.ParseColor(_working.BackgroundColor,
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E814141B"));
+        var dlg = new ColorPickerDialog(current) { Owner = this };
+        if (dlg.ShowDialog() != true || dlg.SelectedColor is not { } picked) return;
+        _working.BackgroundColor = ColorTheme.Hex(picked);
+        RefreshBgSwatch();
+    }
+
+    private void RefreshBgSwatch()
+    {
+        var c = Ui.ParseColor(_working.BackgroundColor,
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E814141B"));
+        BgSwatch.Background = new System.Windows.Media.SolidColorBrush(c);
+        BgHexText.Text = _working.BackgroundColor;
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

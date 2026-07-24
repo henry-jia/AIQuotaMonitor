@@ -706,6 +706,11 @@
                                 <TextBlock x:Name="OpacityLabel" Margin="10,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblBackground" Text="Background" Width="90" Style="{StaticResource FieldLabel}"/>
+                                <Button x:Name="BgSwatch" Width="36" Height="22" Click="BgSwatch_Click"/>
+                                <TextBlock x:Name="BgHexText" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <TextBlock x:Name="LblGlobalInterval" Text="Global refresh interval (min)" Width="150" Style="{StaticResource FieldLabel}"/>
                                 <TextBox x:Name="GlobalIntervalBox" Width="64"/>
                             </StackPanel>

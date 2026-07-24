@@ -6,7 +6,8 @@
         SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False">
     <Border x:Name="Root" CornerRadius="14" Background="#E814141B"
             BorderBrush="#22FFFFFF" BorderThickness="1"
-            MouseLeftButtonDown="Root_MouseLeftButtonDown">
+            MouseLeftButtonDown="Root_MouseLeftButtonDown"
+            MouseWheel="Root_MouseWheel">
         <Border.ContextMenu>
             <ContextMenu>
                 <MenuItem x:Name="MenuRefresh" Header="Refresh now" Click="MenuRefresh_Click"/>
@@ -25,7 +26,7 @@
                 <MenuItem x:Name="MenuExit" Header="Exit" Click="MenuExit_Click"/>
             </ContextMenu>
         </Border.ContextMenu>
-        <StackPanel Margin="14,11,14,13">
+        <StackPanel Margin="16,12,16,14">
             <Grid Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"/>
@@ -33,6 +34,8 @@
                                Margin="8,0,0,0" Visibility="Collapsed"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="ZoomResetButton" Style="{StaticResource IconButtonStyle}" Content="100%"
+                            FontSize="10.5" ToolTip="UI zoom" Margin="4,0,0,0" Click="ZoomReset_Click"/>
                     <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="⏸" ToolTip="Pause scraping"
                             Margin="4,0,0,0" Click="PauseButton_Click"/>
                     <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="⟳" ToolTip="Refresh now"

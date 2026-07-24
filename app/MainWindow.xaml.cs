@@ -81,13 +81,43 @@ public partial class MainWindow : Window
     private void ApplyConfig()
     {
         Topmost = _config.Topmost;
+        Root.Background = new SolidColorBrush(Ui.ParseColor(_config.BackgroundColor,
+            (Color)ColorConverter.ConvertFromString("#E814141B")));
         Root.Opacity = _config.Opacity;
+        ApplyScale();
         MenuTopmost.IsChecked = _config.Topmost;
         if (_trayTopmostItem != null) _trayTopmostItem.Checked = _config.Topmost;
         MenuLayout.Header = _config.IsHorizontal ? I18n.T("layout_to_vertical") : I18n.T("layout_to_horizontal");
         CardsPanel.Orientation = _config.IsHorizontal ? Orientation.Horizontal : Orientation.Vertical;
         RebuildCards();
         RestartTimer();
+    }
+
+    /// <summary>界面缩放：LayoutTransform 整体缩放（含文字），窗口随内容自适应大小。</summary>
+    private void ApplyScale()
+    {
+        double s = _config.UiScale;
+        Root.LayoutTransform = Math.Abs(s - 1.0) < 0.001
+            ? Transform.Identity
+            : new ScaleTransform(s, s);
+        ZoomResetButton.Content = $"{s:P0}";
+    }
+
+    private void Root_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        double step = e.Delta > 0 ? 0.05 : -0.05;
+        double s = Math.Clamp(Math.Round((_config.UiScale + step) * 20) / 20, 0.6, 2.0);
+        if (Math.Abs(s - _config.UiScale) < 0.001) return;
+        _config.UiScale = s;
+        ConfigStore.Save(_config);
+        ApplyScale();
+    }
+
+    private void ZoomReset_Click(object sender, RoutedEventArgs e)
+    {
+        _config.UiScale = 1.0;
+        ConfigStore.Save(_config);
+        ApplyScale();
     }
 
     private void RebuildCards()
@@ -118,7 +148,7 @@ public partial class MainWindow : Window
             card.RequestRefresh += OnRequestRefresh;
             card.RequestPauseToggle += OnCardPauseToggle;
             card.SetPaused(svc.Paused);
-            card.Margin = _config.IsHorizontal ? new Thickness(0, 0, 8, 0) : new Thickness(0, 0, 0, 8);
+            card.Margin = _config.IsHorizontal ? new Thickness(0, 0, 10, 0) : new Thickness(0, 0, 0, 10);
             if (_config.IsHorizontal) card.Width = 240;
             else card.MinWidth = 250;
             if (_results.TryGetValue(svc, out var res)) card.Bind(res, _config);
@@ -510,6 +540,7 @@ public partial class MainWindow : Window
         MenuHide.Header = I18n.T("hide_window");
         MenuExit.Header = I18n.T("exit");
         RefreshButton.ToolTip = I18n.T("refresh_now");
+        ZoomResetButton.ToolTip = I18n.T("zoom_reset_tip");
         HideButton.ToolTip = I18n.T("hide_window_tray");
         UpdatePauseVisuals();
         UpdateButtonStates();
