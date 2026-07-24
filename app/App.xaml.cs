@@ -58,6 +58,25 @@ public partial class App : Application
             return;
         }
 
+        // 动画帧渲染模式：AIQuotaMonitor.exe --test-frames dir [--lang zh]（用于合成演示 GIF）
+        int framesIndex = Array.IndexOf(e.Args, "--test-frames");
+        if (framesIndex >= 0 && framesIndex + 1 < e.Args.Length)
+        {
+            string dir = e.Args[framesIndex + 1];
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            try
+            {
+                TestShot.RunFrames(dir);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(I18n.T("testshot_failed") + ex.Message, "AIQuotaMonitor",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            Shutdown();
+            return;
+        }
+
         var config = ConfigStore.Load();
         I18n.Initialize(langArg ?? config.Language);
         var window = new MainWindow(config);

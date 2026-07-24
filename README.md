@@ -1,10 +1,16 @@
 # AIQuotaMonitor · AI 配额监控
 
+[![build](https://github.com/henry-jia/AIQuotaMonitor/actions/workflows/build.yml/badge.svg)](https://github.com/henry-jia/AIQuotaMonitor/actions/workflows/build.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![release](https://img.shields.io/github/v/release/henry-jia/AIQuotaMonitor)](https://github.com/henry-jia/AIQuotaMonitor/releases)
+
 Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 天用量、30 天用量……）集中显示在一个无边框半透明的小部件里。
 
 大多数 AI 供应商**没有配额 API**，所以本工具的做法是：给每个服务配一个网址，用内置 WebView2 定期打开该页面（通常是已登录状态），按你在设置界面里配置的提取规则从页面上抓取配额数值。规则默认是「**按标签自动定位**」——只要标签和页面上显示的文字一致（如「每周使用额度」）就行，不需要任何 CSS 知识；高级用户也可以填 CSS 选择器精确控制。全程图形化配置，不需要手改任何文本文件。
 
 > **English summary** — AIQuotaMonitor is a Windows 11 desktop widget (WPF, .NET 10, single self-contained exe) that shows quota usage for multiple AI subscriptions (5-hour / 7-day / 30-day windows) in one translucent always-on-top panel. Most AI vendors expose no quota API, so the app periodically opens each vendor's usage page in an embedded WebView2 (using your existing login) and extracts the numbers with label-anchored rules—no CSS knowledge needed. Highlights: per-window progress bars with a **time-pace baseline tick** (see at a glance whether you're burning quota faster than time), reset countdowns with unified date formatting, subscription expiry & auto-renew detection, per-service/global pause, horizontal/vertical layouts, dark theme with preset color themes (plus a custom color picker with screen eyedropper), zh/en UI, and cookie persistence (DPAPI-encrypted) so sessions survive restarts. Download the exe from **Releases** and run—no .NET runtime required. Everything is configured through the settings UI; no files to hand-edit.
+
+![演示](demo.gif)
 
 ![纵向布局](preview_vertical.png)
 

@@ -68,6 +68,78 @@ public static class TestShot
             encoder.Save(fs);
     }
 
+    /// <summary>动画帧渲染：数值随帧变化（越过基准线变色）、中段演示暂停置灰，用于合成演示 GIF。</summary>
+    public static void RunFrames(string dir, int frameCount = 24)
+    {
+        Directory.CreateDirectory(dir);
+        var (config, results) = BuildFramesSample();
+        var resA = results[config.Services[0]];
+        var window = new MainWindow(config, testMode: true);
+        var content = (FrameworkElement)window.Content;
+
+        for (int i = 0; i < frameCount; i++)
+        {
+            // 前 16 帧播放增长动画（缓出），之后定格
+            double t = Math.Min(1, i / 15.0);
+            double ease = 1 - Math.Pow(1 - t, 2);
+            resA.Rules[0].Percent = 15 + 65 * ease;  // 5h 窗口（基准 40%）：15% → 80%，越过基准变色
+            resA.Rules[1].Percent = 60 + 29 * ease;  // 7d 窗口（基准 ~88%）：60% → 89%，末尾超基准 + 倒计时变黄
+            window.LoadSnapshot(config, results);
+
+            // 中段帧演示「单服务暂停」：第二张卡置灰 + 已暂停徽标
+            bool paused = i >= 14 && i <= 18;
+            if (window.CardsPanel.Children.Count > 1 &&
+                window.CardsPanel.Children[1] is ServiceCard cardB)
+            {
+                cardB.SetPaused(paused);
+            }
+            Render(content, Path.Combine(dir, $"frame_{i:D2}.png"));
+        }
+    }
+
+    private static (AppConfig, Dictionary<ServiceConfig, ServiceScrapeResult>) BuildFramesSample()
+    {
+        var a = new ServiceConfig { Name = "星言 Pro", Url = "https://example.com/usage" };
+        var b = new ServiceConfig { Name = "云悟 Team", Url = "https://example.com/panel" };
+        var c = new ServiceConfig { Name = "智海 Max", Url = "https://example.com/console" };
+        var config = new AppConfig { Services = new List<ServiceConfig> { a, b, c } };
+
+        var results = new Dictionary<ServiceConfig, ServiceScrapeResult>
+        {
+            [a] = new ServiceScrapeResult
+            {
+                Service = a,
+                Status = ScrapeStatus.Ok,
+                Rules = new List<RuleResult>
+                {
+                    new() { Label = "5 小时用量", Percent = 15, Detail = "0.8 / 5 小时", ResetText = "3 小时后重置", ResetAt = DateTime.Now.AddHours(3) },
+                    new() { Label = "7 天用量", Percent = 60, Detail = "4.2 / 7 天", ResetText = "20 小时后重置", ResetAt = DateTime.Now.AddHours(20) },
+                },
+                Subscription = new SubscriptionInfo { ExpireAt = DateTime.Now.AddDays(26), AutoRenew = true },
+                SubscriptionFetchedAt = DateTimeOffset.Now,
+            },
+            [b] = new ServiceScrapeResult
+            {
+                Service = b,
+                Status = ScrapeStatus.Ok,
+                Rules = new List<RuleResult>
+                {
+                    new() { Label = "5 小时用量", Percent = 35, Detail = "1.8 / 5 小时", ResetText = "2 小时后重置", ResetAt = DateTime.Now.AddHours(2.5) },
+                },
+                Subscription = new SubscriptionInfo { ExpireAt = DateTime.Now.AddDays(9), AutoRenew = false },
+                SubscriptionFetchedAt = DateTimeOffset.Now,
+            },
+            [c] = new ServiceScrapeResult
+            {
+                Service = c,
+                Status = ScrapeStatus.Error,
+                SuggestLogin = true,
+                ErrorMessage = I18n.T("test_sample_error"),
+            },
+        };
+        return (config, results);
+    }
+
     private static AppConfig BuildSettingsSample()
     {
         var a = new ServiceConfig
