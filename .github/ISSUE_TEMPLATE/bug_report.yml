@@ -1,0 +1,35 @@
+name: Bug 报告 / Bug report
+description: 报告一个缺陷
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 问题描述 / What happened
+      description: 期望行为是什么，实际发生了什么
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / Version
+      description: Release 版本号或 commit（如 v1.0.0）
+    validations:
+      required: true
+  - type: textarea
+    id: service
+    attributes:
+      label: 涉及的服务配置 / Service config
+      description: 哪个供应商抓不到？贴上 config.json 里该服务的配置（去掉任何敏感信息）
+      placeholder: '{"name": "...", "url": "...", "rules": [...]}'
+  - type: textarea
+    id: scrape
+    attributes:
+      label: 测试抓取输出 / Test scrape output
+      description: 抓取类问题请附上「设置 → 测试抓取」的完整输出（含页面标题/正文开头）
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 截图 / Screenshots
+      description: 界面显示异常请附截图
