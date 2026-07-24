@@ -83,11 +83,36 @@ public partial class ServiceCard : UserControl
         catch { /* 无默认浏览器等场景静默忽略 */ }
     }
 
-    /// <summary>按住 Ctrl 时把服务名显示为链接样式（主窗口监听修饰键统一调用）。</summary>
+    /// <summary>按住 Ctrl 且鼠标悬停在服务名上时才显示链接样式（下划线 + 手型光标）。</summary>
+    private bool _ctrlHeld;
+    private bool _nameHover;
+
+    private void Name_HoverEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _nameHover = true;
+        // 悬停时直接读修饰键状态，窗口无键盘焦点时也能正确提示
+        _ctrlHeld = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        UpdateNameHint();
+    }
+
+    private void Name_HoverLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _nameHover = false;
+        UpdateNameHint();
+    }
+
+    /// <summary>主窗口监听修饰键统一调用（窗口有焦点时，先悬停后按 Ctrl 也能生效）。</summary>
     public void SetCtrlHint(bool ctrl)
     {
-        NameText.Cursor = ctrl ? System.Windows.Input.Cursors.Hand : null;
-        NameText.TextDecorations = ctrl ? System.Windows.TextDecorations.Underline : null;
+        _ctrlHeld = ctrl;
+        UpdateNameHint();
+    }
+
+    private void UpdateNameHint()
+    {
+        bool link = _ctrlHeld && _nameHover;
+        NameText.Cursor = link ? System.Windows.Input.Cursors.Hand : null;
+        NameText.TextDecorations = link ? System.Windows.TextDecorations.Underline : null;
     }
 
     public void BindLoading(ServiceConfig service)

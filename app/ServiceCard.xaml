@@ -13,7 +13,8 @@
                 <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="Dot" Width="9" Height="9"/>
                     <TextBlock x:Name="NameText" Margin="8,0,0,0" Foreground="#EDEDF2" FontSize="13" FontWeight="SemiBold"
-                               MouseLeftButtonDown="Name_Click"/>
+                               MouseLeftButtonDown="Name_Click"
+                               MouseEnter="Name_HoverEnter" MouseLeave="Name_HoverLeave"/>
                     <TextBlock x:Name="PausedBadge" Margin="8,0,0,0" Foreground="#8A8A95" FontSize="10.5"
                                VerticalAlignment="Center" Visibility="Collapsed"/>
                 </StackPanel>
