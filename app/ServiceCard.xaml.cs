@@ -68,6 +68,28 @@ public partial class ServiceCard : UserControl
         if (_service != null) RequestPauseToggle?.Invoke(_service);
     }
 
+    /// <summary>Ctrl+点击服务名：用系统默认浏览器打开该服务的用量页面，方便手动核对官方数据。</summary>
+    private void Name_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0) return;
+        if (_service == null || string.IsNullOrWhiteSpace(_service.Url)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_service.Url)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch { /* 无默认浏览器等场景静默忽略 */ }
+    }
+
+    /// <summary>按住 Ctrl 时把服务名显示为链接样式（主窗口监听修饰键统一调用）。</summary>
+    public void SetCtrlHint(bool ctrl)
+    {
+        NameText.Cursor = ctrl ? System.Windows.Input.Cursors.Hand : null;
+        NameText.TextDecorations = ctrl ? System.Windows.TextDecorations.Underline : null;
+    }
+
     public void BindLoading(ServiceConfig service)
     {
         _service = service;
@@ -130,6 +152,7 @@ public partial class ServiceCard : UserControl
     {
         Dot.Fill = new SolidColorBrush(_theme.Accent);
         NameText.Text = svc.Name;
+        NameText.ToolTip = I18n.T("open_usage_tip");
     }
 
     /// <summary>订阅信息行：「N 天后到期 · 自动续费 开/关」，临近到期变色提醒。</summary>

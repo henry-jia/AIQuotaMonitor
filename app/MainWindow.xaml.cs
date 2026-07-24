@@ -46,6 +46,9 @@ public partial class MainWindow : Window
         _testMode = testMode;
         InitializeComponent();
         I18n.Changed += OnI18nChanged;
+        // 按住 Ctrl 时卡片服务名变链接样式（Ctrl+点击打开官方用量页面）
+        PreviewKeyDown += (s, e) => UpdateCtrlHint();
+        PreviewKeyUp += (s, e) => UpdateCtrlHint();
         ApplyTexts();
         UpdateLanguageChecks();
 
@@ -184,6 +187,14 @@ public partial class MainWindow : Window
                 card.Bind(res, _config);
             }
         }
+    }
+
+    /// <summary>按住/松开 Ctrl 时切换卡片服务名的链接样式。</summary>
+    private void UpdateCtrlHint()
+    {
+        bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        foreach (var child in CardsPanel.Children)
+            if (child is ServiceCard card) card.SetCtrlHint(ctrl);
     }
 
     private async void Timer_Tick(object? sender, EventArgs e) => await RefreshDueAsync();
