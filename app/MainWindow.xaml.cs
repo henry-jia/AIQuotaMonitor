@@ -49,6 +49,11 @@ public partial class MainWindow : Window
         // 按住 Ctrl 时卡片服务名变链接样式（Ctrl+点击打开官方用量页面）
         PreviewKeyDown += (s, e) => UpdateCtrlHint();
         PreviewKeyUp += (s, e) => UpdateCtrlHint();
+        // 卡片拖拽排序
+        CardsPanel.AllowDrop = true;
+        CardsPanel.DragOver += CardsPanel_DragOver;
+        CardsPanel.Drop += CardsPanel_Drop;
+        CardsPanel.DragLeave += (s, e) => ClearDropHints();
         ApplyTexts();
         UpdateLanguageChecks();
 
@@ -195,6 +200,68 @@ public partial class MainWindow : Window
         bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
         foreach (var child in CardsPanel.Children)
             if (child is ServiceCard card) card.SetCtrlHint(ctrl);
+    }
+
+    // ---------- 卡片拖拽排序 ----------
+
+    private int _dropIndex = -1;
+
+    private void CardsPanel_DragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(typeof(ServiceCard)))
+        {
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+        var cards = CardsPanel.Children.OfType<ServiceCard>().ToList();
+        bool horiz = _config.IsHorizontal;
+        var p = e.GetPosition(CardsPanel);
+        double cur = horiz ? p.X : p.Y;
+        int index = cards.Count;
+        for (int i = 0; i < cards.Count; i++)
+        {
+            var pos = cards[i].TranslatePoint(new System.Windows.Point(0, 0), CardsPanel);
+            double mid = horiz ? pos.X + cards[i].ActualWidth / 2 : pos.Y + cards[i].ActualHeight / 2;
+            if (cur < mid) { index = i; break; }
+        }
+        _dropIndex = index;
+        // 指示线：index 处卡片的 top/left；拖到末尾则是最后一张的 bottom/right
+        for (int i = 0; i < cards.Count; i++)
+        {
+            string? edge = i == index ? (horiz ? "left" : "top")
+                : i == index - 1 && index == cards.Count ? (horiz ? "right" : "bottom")
+                : null;
+            cards[i].SetDropHint(edge);
+        }
+    }
+
+    private void CardsPanel_Drop(object sender, DragEventArgs e)
+    {
+        int index = _dropIndex;
+        var dragged = e.Data.GetData(typeof(ServiceCard)) as ServiceCard;
+        ClearDropHints();
+        if (dragged?.Tag is not ServiceConfig svc || index < 0) return;
+        var enabled = _config.Services.Where(s => s.Enabled).ToList();
+        if (!enabled.Contains(svc)) return;
+        // 落点对应的「插入到该服务之前」目标；index 等于总数表示移到末尾
+        ServiceConfig? before = index < enabled.Count ? enabled[index] : null;
+        if (before == svc) return;
+        _config.Services.Remove(svc);
+        if (before != null)
+            _config.Services.Insert(_config.Services.IndexOf(before), svc);
+        else
+            _config.Services.Add(svc);
+        ConfigStore.Save(_config);
+        ApplyConfig(); // 重建卡片，抓取结果与计时按对象引用保留
+    }
+
+    private void ClearDropHints()
+    {
+        _dropIndex = -1;
+        foreach (var card in CardsPanel.Children.OfType<ServiceCard>())
+            card.SetDropHint(null);
     }
 
     private async void Timer_Tick(object? sender, EventArgs e) => await RefreshDueAsync();

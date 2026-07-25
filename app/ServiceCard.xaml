@@ -2,8 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Border x:Name="CardRoot" CornerRadius="10" Background="#0DFFFFFF" Padding="14,12" SnapsToDevicePixels="True">
-        <StackPanel>
-            <DockPanel>
+        <Grid>
+            <StackPanel>
+            <DockPanel x:Name="HeaderPanel"
+                       PreviewMouseLeftButtonDown="Header_PreviewMouseDown"
+                       MouseMove="Header_MouseMove">
                 <Button x:Name="CardRefreshButton" DockPanel.Dock="Right" Content="⟳"
                         Style="{StaticResource IconButtonStyle}" ToolTip="Refresh this service"
                         Click="CardRefresh_Click"/>
@@ -33,6 +36,15 @@
                 <TextBlock x:Name="ErrorText" Foreground="#E5534B" FontSize="11" TextWrapping="Wrap"/>
                 <Button x:Name="ErrorLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Login_Click"/>
             </StackPanel>
-        </StackPanel>
+            </StackPanel>
+            <Border x:Name="DropHintTop" Height="3" CornerRadius="1.5" Background="#4F8CFF"
+                    VerticalAlignment="Top" Margin="-14,-12,-14,0" Visibility="Collapsed"/>
+            <Border x:Name="DropHintBottom" Height="3" CornerRadius="1.5" Background="#4F8CFF"
+                    VerticalAlignment="Bottom" Margin="-14,0,-14,-12" Visibility="Collapsed"/>
+            <Border x:Name="DropHintLeft" Width="3" CornerRadius="1.5" Background="#4F8CFF"
+                    HorizontalAlignment="Left" Margin="-14,-12,0,-12" Visibility="Collapsed"/>
+            <Border x:Name="DropHintRight" Width="3" CornerRadius="1.5" Background="#4F8CFF"
+                    HorizontalAlignment="Right" Margin="0,-12,-14,-12" Visibility="Collapsed"/>
+        </Grid>
     </Border>
 </UserControl>

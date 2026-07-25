@@ -30,6 +30,7 @@ public partial class ServiceCard : UserControl
     /// <summary>按当前语言刷新卡片上的固定文案（构造时与语言切换重建时调用）。</summary>
     public void ApplyTexts()
     {
+        HeaderPanel.ToolTip = I18n.T("drag_reorder_tip");
         CardRefreshButton.ToolTip = I18n.T("refresh_this_service");
         PausedBadge.Text = I18n.T("paused_badge");
         CardPauseButton.ToolTip = I18n.T(_paused ? "resume_this_service" : "pause_this_service");
@@ -66,6 +67,59 @@ public partial class ServiceCard : UserControl
     private void CardPause_Click(object sender, RoutedEventArgs e)
     {
         if (_service != null) RequestPauseToggle?.Invoke(_service);
+    }
+
+    // ---------- 拖拽排序 ----------
+
+    private System.Windows.Point? _dragStart;
+
+    private void Header_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // Ctrl+点击（打开网页）和点在按钮上不触发拖拽
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0) return;
+        if (IsOnButton(e.OriginalSource as DependencyObject)) return;
+        _dragStart = e.GetPosition(this);
+    }
+
+    private void Header_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_dragStart is not { } start) return;
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
+        {
+            _dragStart = null;
+            return;
+        }
+        var pos = e.GetPosition(this);
+        if (Math.Abs(pos.X - start.X) < 5 && Math.Abs(pos.Y - start.Y) < 5) return;
+        _dragStart = null;
+        CardRoot.Opacity = 0.5; // 拖拽中被拖卡片半透明
+        try
+        {
+            DragDrop.DoDragDrop(this, new DataObject(typeof(ServiceCard), this), DragDropEffects.Move);
+        }
+        finally
+        {
+            SetPaused(_paused); // 恢复原有透明度
+        }
+    }
+
+    private static bool IsOnButton(DependencyObject? d)
+    {
+        while (d != null)
+        {
+            if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
+            d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent;
+        }
+        return false;
+    }
+
+    /// <summary>落点指示线："top"/"bottom"/"left"/"right"/null（横向布局用 left/right）。</summary>
+    public void SetDropHint(string? edge)
+    {
+        DropHintTop.Visibility = edge == "top" ? Visibility.Visible : Visibility.Collapsed;
+        DropHintBottom.Visibility = edge == "bottom" ? Visibility.Visible : Visibility.Collapsed;
+        DropHintLeft.Visibility = edge == "left" ? Visibility.Visible : Visibility.Collapsed;
+        DropHintRight.Visibility = edge == "right" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Ctrl+点击服务名：用系统默认浏览器打开该服务的用量页面，方便手动核对官方数据。</summary>
