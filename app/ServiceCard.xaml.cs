@@ -69,7 +69,10 @@ public partial class ServiceCard : UserControl
         if (_service != null) RequestPauseToggle?.Invoke(_service);
     }
 
-    // ---------- 拖拽排序 ----------
+    // ---------- 拖拽排序（Alt+拖拽，实时重排动画由主窗口协调） ----------
+
+    /// <summary>Alt+拖拽开始（参数：按下点相对卡片左上角的偏移）。</summary>
+    public event Action<ServiceCard, System.Windows.Point>? AltDragStarted;
 
     private System.Windows.Point? _dragStart;
 
@@ -93,15 +96,7 @@ public partial class ServiceCard : UserControl
         var pos = e.GetPosition(this);
         if (Math.Abs(pos.X - start.X) < 5 && Math.Abs(pos.Y - start.Y) < 5) return;
         _dragStart = null;
-        CardRoot.Opacity = 0.5; // 拖拽中被拖卡片半透明
-        try
-        {
-            DragDrop.DoDragDrop(this, new DataObject(typeof(ServiceCard), this), DragDropEffects.Move);
-        }
-        finally
-        {
-            SetPaused(_paused); // 恢复原有透明度
-        }
+        AltDragStarted?.Invoke(this, start);
     }
 
     private static bool IsOnButton(DependencyObject? d)
@@ -112,15 +107,6 @@ public partial class ServiceCard : UserControl
             d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent;
         }
         return false;
-    }
-
-    /// <summary>落点指示线："top"/"bottom"/"left"/"right"/null（横向布局用 left/right）。</summary>
-    public void SetDropHint(string? edge)
-    {
-        DropHintTop.Visibility = edge == "top" ? Visibility.Visible : Visibility.Collapsed;
-        DropHintBottom.Visibility = edge == "bottom" ? Visibility.Visible : Visibility.Collapsed;
-        DropHintLeft.Visibility = edge == "left" ? Visibility.Visible : Visibility.Collapsed;
-        DropHintRight.Visibility = edge == "right" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Ctrl+点击服务名：用系统默认浏览器打开该服务的用量页面，方便手动核对官方数据。</summary>

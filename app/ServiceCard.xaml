@@ -37,14 +37,6 @@
                 <Button x:Name="ErrorLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Login_Click"/>
             </StackPanel>
             </StackPanel>
-            <Border x:Name="DropHintTop" Height="3" CornerRadius="1.5" Background="#4F8CFF"
-                    VerticalAlignment="Top" Margin="-14,-12,-14,0" Visibility="Collapsed"/>
-            <Border x:Name="DropHintBottom" Height="3" CornerRadius="1.5" Background="#4F8CFF"
-                    VerticalAlignment="Bottom" Margin="-14,0,-14,-12" Visibility="Collapsed"/>
-            <Border x:Name="DropHintLeft" Width="3" CornerRadius="1.5" Background="#4F8CFF"
-                    HorizontalAlignment="Left" Margin="-14,-12,0,-12" Visibility="Collapsed"/>
-            <Border x:Name="DropHintRight" Width="3" CornerRadius="1.5" Background="#4F8CFF"
-                    HorizontalAlignment="Right" Margin="0,-12,-14,-12" Visibility="Collapsed"/>
         </Grid>
     </Border>
 </UserControl>

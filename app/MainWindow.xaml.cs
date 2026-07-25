@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using WinForms = System.Windows.Forms;
 
@@ -49,11 +50,6 @@ public partial class MainWindow : Window
         // 按住 Ctrl 时卡片服务名变链接样式（Ctrl+点击打开官方用量页面）
         PreviewKeyDown += (s, e) => UpdateCtrlHint();
         PreviewKeyUp += (s, e) => UpdateCtrlHint();
-        // 卡片拖拽排序
-        CardsPanel.AllowDrop = true;
-        CardsPanel.DragOver += CardsPanel_DragOver;
-        CardsPanel.Drop += CardsPanel_Drop;
-        CardsPanel.DragLeave += (s, e) => ClearDropHints();
         ApplyTexts();
         UpdateLanguageChecks();
 
@@ -155,6 +151,7 @@ public partial class MainWindow : Window
             card.RequestLogin += OnRequestLogin;
             card.RequestRefresh += OnRequestRefresh;
             card.RequestPauseToggle += OnCardPauseToggle;
+            card.AltDragStarted += OnAltDragStarted;
             card.SetPaused(svc.Paused);
             card.Margin = _config.IsHorizontal ? new Thickness(0, 0, 10, 0) : new Thickness(0, 0, 0, 10);
             if (_config.IsHorizontal) card.Width = 240;
@@ -202,22 +199,47 @@ public partial class MainWindow : Window
             if (child is ServiceCard card) card.SetCtrlHint(ctrl);
     }
 
-    // ---------- 卡片拖拽排序 ----------
+    // ---------- 卡片拖拽排序（实时重排 + FLIP 动画） ----------
 
-    private int _dropIndex = -1;
+    private ServiceCard? _dragCard;
+    private TranslateTransform? _dragTx;
+    private System.Windows.Point _grabOffset;
 
-    private void CardsPanel_DragOver(object sender, DragEventArgs e)
+    /// <summary>Alt+拖拽开始：卡片浮起（放大 + 阴影 + 置顶），捕获鼠标跟随。</summary>
+    private void OnAltDragStarted(ServiceCard card, System.Windows.Point grabOffset)
     {
-        if (!e.Data.GetDataPresent(typeof(ServiceCard)))
+        _dragCard = card;
+        _grabOffset = grabOffset;
+        _dragTx = new TranslateTransform();
+        var group = new TransformGroup();
+        group.Children.Add(new ScaleTransform(1.03, 1.03, card.ActualWidth / 2, card.ActualHeight / 2));
+        group.Children.Add(_dragTx);
+        card.RenderTransform = group;
+        Panel.SetZIndex(card, 99);
+        card.Effect = new System.Windows.Media.Effects.DropShadowEffect
         {
-            e.Effects = DragDropEffects.None;
-            return;
-        }
-        e.Effects = DragDropEffects.Move;
-        e.Handled = true;
+            BlurRadius = 16,
+            Opacity = 0.5,
+            ShadowDepth = 3,
+            Color = Colors.Black,
+        };
+        card.CaptureMouse();
+        card.MouseMove += Drag_MouseMove;
+        card.MouseLeftButtonUp += Drag_MouseUp;
+    }
+
+    private void Drag_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragCard == null || _dragTx == null) return;
+        // 被拖卡片跟随鼠标（RenderTransform 不改变布局，TranslatePoint 拿到的仍是布局位置）
+        var p = e.GetPosition(CardsPanel);
+        var layoutPos = _dragCard.TranslatePoint(new System.Windows.Point(0, 0), CardsPanel);
+        _dragTx.X = p.X - _grabOffset.X - layoutPos.X;
+        _dragTx.Y = p.Y - _grabOffset.Y - layoutPos.Y;
+
+        // 越过某卡片中点 → 就地把被拖卡片移到该位置，其他卡片动画让位
         var cards = CardsPanel.Children.OfType<ServiceCard>().ToList();
         bool horiz = _config.IsHorizontal;
-        var p = e.GetPosition(CardsPanel);
         double cur = horiz ? p.X : p.Y;
         int index = cards.Count;
         for (int i = 0; i < cards.Count; i++)
@@ -226,42 +248,64 @@ public partial class MainWindow : Window
             double mid = horiz ? pos.X + cards[i].ActualWidth / 2 : pos.Y + cards[i].ActualHeight / 2;
             if (cur < mid) { index = i; break; }
         }
-        _dropIndex = index;
-        // 指示线：index 处卡片的 top/left；拖到末尾则是最后一张的 bottom/right
-        for (int i = 0; i < cards.Count; i++)
+        int current = cards.IndexOf(_dragCard);
+        int target = index > current ? index - 1 : index;
+        if (target != current)
+            ReorderWithAnimation(_dragCard, target);
+    }
+
+    /// <summary>FLIP：记录旧布局位置 → 就地重排 → 其他卡片从旧位置缓出动画滑到新位置。</summary>
+    private void ReorderWithAnimation(ServiceCard card, int newIndex)
+    {
+        var oldPos = new Dictionary<ServiceCard, System.Windows.Point>();
+        foreach (var c in CardsPanel.Children.OfType<ServiceCard>())
+            if (c != card) oldPos[c] = c.TranslatePoint(new System.Windows.Point(0, 0), CardsPanel);
+
+        CardsPanel.Children.Remove(card);
+        CardsPanel.Children.Insert(newIndex, card);
+        CardsPanel.UpdateLayout();
+
+        foreach (var kv in oldPos)
         {
-            string? edge = i == index ? (horiz ? "left" : "top")
-                : i == index - 1 && index == cards.Count ? (horiz ? "right" : "bottom")
-                : null;
-            cards[i].SetDropHint(edge);
+            var newPos = kv.Key.TranslatePoint(new System.Windows.Point(0, 0), CardsPanel);
+            double dx = kv.Value.X - newPos.X, dy = kv.Value.Y - newPos.Y;
+            if (dx == 0 && dy == 0) continue;
+            if (kv.Key.RenderTransform is not TranslateTransform tt)
+            {
+                tt = new TranslateTransform();
+                kv.Key.RenderTransform = tt;
+            }
+            tt.X = dx;
+            tt.Y = dy;
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            tt.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease });
+            tt.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease });
         }
     }
 
-    private void CardsPanel_Drop(object sender, DragEventArgs e)
+    /// <summary>松手：复位浮起效果，按面板顺序写回配置。</summary>
+    private void Drag_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        int index = _dropIndex;
-        var dragged = e.Data.GetData(typeof(ServiceCard)) as ServiceCard;
-        ClearDropHints();
-        if (dragged?.Tag is not ServiceConfig svc || index < 0) return;
-        var enabled = _config.Services.Where(s => s.Enabled).ToList();
-        if (!enabled.Contains(svc)) return;
-        // 落点对应的「插入到该服务之前」目标；index 等于总数表示移到末尾
-        ServiceConfig? before = index < enabled.Count ? enabled[index] : null;
-        if (before == svc) return;
-        _config.Services.Remove(svc);
-        if (before != null)
-            _config.Services.Insert(_config.Services.IndexOf(before), svc);
-        else
-            _config.Services.Add(svc);
-        ConfigStore.Save(_config);
-        ApplyConfig(); // 重建卡片，抓取结果与计时按对象引用保留
-    }
+        if (_dragCard == null) return;
+        var card = _dragCard;
+        card.ReleaseMouseCapture();
+        card.MouseMove -= Drag_MouseMove;
+        card.MouseLeftButtonUp -= Drag_MouseUp;
+        card.RenderTransform = null;
+        card.Effect = null;
+        Panel.SetZIndex(card, 0);
+        _dragCard = null;
+        _dragTx = null;
 
-    private void ClearDropHints()
-    {
-        _dropIndex = -1;
-        foreach (var card in CardsPanel.Children.OfType<ServiceCard>())
-            card.SetDropHint(null);
+        // 启用服务按面板新顺序重排，禁用服务保持原有相对位置
+        var enabledOrder = CardsPanel.Children.OfType<ServiceCard>()
+            .Select(c => (ServiceConfig)c.Tag).ToList();
+        var queue = new Queue<ServiceConfig>(enabledOrder);
+        var reordered = _config.Services.Select(s => s.Enabled ? queue.Dequeue() : s).ToList();
+        _config.Services = reordered;
+        ConfigStore.Save(_config);
     }
 
     private async void Timer_Tick(object? sender, EventArgs e) => await RefreshDueAsync();
