@@ -458,6 +458,8 @@ public partial class MainWindow : Window
 
     private void Root_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // 按住 Alt 时是卡片拖拽排序，窗口拖动让路（否则 DragMove 会吃掉事件，卡片永远拖不动）
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) != 0) return;
         // 按住任意空白处拖动（按钮除外），拖动结束自动保存位置
         if (e.LeftButton == MouseButtonState.Pressed && !IsOnButton(e.OriginalSource as DependencyObject))
         {

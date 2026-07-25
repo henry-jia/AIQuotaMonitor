@@ -75,10 +75,11 @@ public partial class ServiceCard : UserControl
 
     private void Header_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        // Ctrl+点击（打开网页）和点在按钮上不触发拖拽
-        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0) return;
+        // 仅 Alt+拖拽触发排序；点在按钮上不触发
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
         if (IsOnButton(e.OriginalSource as DependencyObject)) return;
         _dragStart = e.GetPosition(this);
+        e.Handled = true; // 阻止冒泡到主窗口的窗口拖动（DragMove）
     }
 
     private void Header_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
