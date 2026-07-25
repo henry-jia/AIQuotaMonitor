@@ -275,11 +275,13 @@ public partial class ServiceCard : UserControl
             if (cfg.ShowPaceBaseline && elapsed is { } el0 && el0 > 0.001 && el0 < 0.999)
             {
                 bool ahead = pct / 100.0 > el0; // 用量跑在时间前面 = 用得偏快
+                // 显示位置钳制在 2%~98%，避免贴近两端圆角时看不见（如 19 分钟后重置 → 99.8%）
+                double tickPos = Math.Clamp(el0, 0.02, 0.98);
                 grid.ToolTip = I18n.T(ahead ? "pace_tooltip_ahead" : "pace_tooltip_behind",
                     el0.ToString("P0"), $"{pct:0.#}%");
                 var overlay = new Grid { IsHitTestVisible = false };
-                overlay.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(el0, GridUnitType.Star) });
-                overlay.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1 - el0, GridUnitType.Star) });
+                overlay.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(tickPos, GridUnitType.Star) });
+                overlay.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1 - tickPos, GridUnitType.Star) });
                 var tick = new Border
                 {
                     Width = 3,

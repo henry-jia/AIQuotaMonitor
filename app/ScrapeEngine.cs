@@ -117,7 +117,7 @@ public sealed class ScrapeEngine
 
             // 4) 逐条规则提取
             foreach (var rule in service.Rules)
-                result.Rules.Add(await ScrapeRuleAsync(wv, rule));
+                result.Rules.Add(await ScrapeRuleAsync(wv, service, rule));
 
             // 4b) 全部抓不到：内容可能在跨域 iframe 里（同源策略导致 JS 读不到，
             //     登录窗口里能看到是因为渲染不受限）。把隐藏浏览器直接导航到
@@ -132,7 +132,7 @@ public sealed class ScrapeEngine
                         await WaitForContentAsync(wv, service, ct);
                         var retry = new List<RuleResult>();
                         foreach (var rule in service.Rules)
-                            retry.Add(await ScrapeRuleAsync(wv, rule));
+                            retry.Add(await ScrapeRuleAsync(wv, service, rule));
                         if (retry.Any(r => r.Percent != null))
                         {
                             result.Rules = retry;
@@ -431,17 +431,25 @@ public sealed class ScrapeEngine
         }
     }
 
-    private async Task<RuleResult> ScrapeRuleAsync(CoreWebView2 wv, QuotaRule rule)
+    private async Task<RuleResult> ScrapeRuleAsync(CoreWebView2 wv, ServiceConfig service, QuotaRule rule)
     {
         // 选择器留空 = 自动定位模式：用「标签」文字在页面上找到锚点，
         // 再向上找第一个匹配正则的容器，在容器内取数值和重置时间。
         if (string.IsNullOrWhiteSpace(rule.Selector))
-            return await ScrapeRuleAutoAsync(wv, rule);
+        {
+            var others = service.Rules
+                .Where(r => !ReferenceEquals(r, rule))
+                .Select(r => string.IsNullOrWhiteSpace(r.MatchText) ? r.Label : r.MatchText!)
+                .ToList();
+            return await ScrapeRuleAutoAsync(wv, rule, others);
+        }
         return await ScrapeRuleBySelectorAsync(wv, rule);
     }
 
-    /// <summary>自动定位模式：标签即页面上的文字（如「每周使用额度」），无需 CSS 知识。</summary>
-    private async Task<RuleResult> ScrapeRuleAutoAsync(CoreWebView2 wv, QuotaRule rule)
+    /// <summary>自动定位模式：标签即页面上的文字（如「每周使用额度」），无需 CSS 知识。
+    /// otherAnchors = 其他规则的锚点，用于拒绝混入兄弟配额的共享祖先容器。</summary>
+    private async Task<RuleResult> ScrapeRuleAutoAsync(CoreWebView2 wv, QuotaRule rule,
+        System.Collections.Generic.IReadOnlyList<string> otherAnchors)
     {
         var rr = new RuleResult { Label = rule.Label };
         var resetPat = string.IsNullOrWhiteSpace(rule.ResetPattern)
@@ -450,7 +458,7 @@ public sealed class ScrapeEngine
         string payload;
         try
         {
-            payload = await EvalStringAsync(wv, BuildAutoExtractScript(rule, resetPat));
+            payload = await EvalStringAsync(wv, BuildAutoExtractScript(rule, resetPat, otherAnchors));
         }
         catch (Exception ex)
         {
@@ -468,13 +476,15 @@ public sealed class ScrapeEngine
 
     /// <summary>自动定位提取脚本：锚点定位 → 容器内取「字号最大的匹配元素」→ 同区域找重置时间。
     /// 返回 { ok, groups, text, reset, quality }；quality 供等待轮询判断真实数值是否已渲染。</summary>
-    private static string BuildAutoExtractScript(QuotaRule rule, string resetPat) => $$"""
+    private static string BuildAutoExtractScript(QuotaRule rule, string resetPat,
+        System.Collections.Generic.IReadOnlyList<string> otherAnchors) => $$"""
         (function () {
           try {
             var labels = {{JsString(string.IsNullOrWhiteSpace(rule.MatchText) ? rule.Label : rule.MatchText)}}
               .split("|")
               .map(function (s) { return s.replace(/\s+/g, ""); })
               .filter(function (s) { return s.length > 0; });
+            var others = {{JsonSerializer.Serialize(otherAnchors)}};
             if (!labels.length) return JSON.stringify({ ok:false, err:"labels_empty" });
             var re = new RegExp({{JsString(rule.Pattern)}}, "i");
             // 1) 找包含任一定位文本的最内层元素作为锚点
@@ -528,12 +538,22 @@ public sealed class ScrapeEngine
             var g = [];
             for (var i = 1; i < m.length; i++) g.push(m[i] == null ? "" : m[i]);
             // 4) 重置时间：先在数值容器内匹配；没有则向上再找 4 层
-            //    （有的页面重置时间在更大的区块里，如「总用量」的重置日期在区块右侧）
+            //    （有的页面重置时间在更大的区块里，如「总用量」的重置日期在区块右侧）。
+            //    但祖先里若混入其他配额的标签（共享容器），拒绝接受——
+            //    否则 0% 用量时会把兄弟配额的重置日期抓过来（智谱/阿里 5 小时行的教训）
             var reset = "";
             var rre = new RegExp({{JsString(resetPat)}}, "i");
             var rnode = container, rfound = false;
             for (var d2 = 0; d2 <= 4 && rnode && !rfound; d2++) {
               var rt = (rnode.innerText || "").trim();
+              if (d2 > 0) {
+                var rtFlat = rt.replace(/\s+/g, "");
+                var blocked = false;
+                for (var oi = 0; oi < others.length; oi++) {
+                  if (others[oi] && rtFlat.indexOf(others[oi]) >= 0) { blocked = true; break; }
+                }
+                if (blocked) break;
+              }
               var rm = rt.match(rre);
               if (rm) { reset = (rm.length > 1 && rm[1] ? rm[1] : rm[0]).trim(); rfound = true; break; }
               rnode = rnode.parentElement;
@@ -551,7 +571,8 @@ public sealed class ScrapeEngine
             : rule.ResetPattern;
         try
         {
-            var payload = await EvalStringAsync(wv, BuildAutoExtractScript(rule, resetPat));
+            var payload = await EvalStringAsync(wv, BuildAutoExtractScript(rule, resetPat,
+                System.Array.Empty<string>()));
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
             if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean()) return false;

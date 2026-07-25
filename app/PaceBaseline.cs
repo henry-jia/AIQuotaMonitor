@@ -31,12 +31,25 @@ public static class PaceBaseline
         return null;
     }
 
-    /// <summary>窗口已过去的比例（0~1）。缺标签或缺重置时间返回 null（不画基准线）。</summary>
+    /// <summary>窗口已过去的比例（0~1）。缺重置时间返回 null（不画基准线）。
+    /// 标签推断失败时，按剩余时间归入最近的窗口档（5h / 7d / 30d），
+    /// 让「总使用量」这类无窗口关键词的标签也能有基准线。</summary>
     public static double? Elapsed(string? label, DateTime? resetAt, DateTime now)
     {
-        var windowHours = WindowHours(label);
-        if (windowHours == null || resetAt == null) return null;
+        if (resetAt == null) return null;
         double remainingHours = (resetAt.Value - now).TotalHours;
+        var windowHours = WindowHours(label) ?? InferFromRemaining(remainingHours);
+        if (windowHours == null) return null;
         return Math.Clamp(1 - remainingHours / windowHours.Value, 0, 1);
+    }
+
+    /// <summary>按剩余时间归入最近的配额窗口档；超出 30 天或已过期返回 null。</summary>
+    private static double? InferFromRemaining(double remainingHours)
+    {
+        if (remainingHours <= 0) return null;
+        if (remainingHours <= 5) return 5;
+        if (remainingHours <= 7 * 24) return 7 * 24;
+        if (remainingHours <= 30 * 24) return 30 * 24;
+        return null;
     }
 }
