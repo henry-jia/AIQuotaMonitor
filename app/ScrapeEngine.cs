@@ -275,17 +275,21 @@ public sealed class ScrapeEngine
                   .join("|").split("|")
                   .map(function (s) { return s.replace(/\s+/g, ""); })
                   .filter(function (s) { return s.length > 0; });
-                // 收集主文档 + 所有同源 iframe（微前端页面，如阿里云控制台）
+                // 收集主文档 + 同源 iframe + 开放的 shadow root（shadow root 无 body，用根节点文本）
                 var docs = [document];
                 for (var di = 0; di < docs.length; di++) {
                   var frames = docs[di].querySelectorAll("iframe");
                   for (var fi = 0; fi < frames.length; fi++) {
                     try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
                   }
+                  var els = docs[di].querySelectorAll("*");
+                  for (var si = 0; si < els.length; si++) {
+                    if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+                  }
                 }
                 var t = "";
                 for (var d0 = 0; d0 < docs.length; d0++) {
-                  try { t += ((docs[d0].body && docs[d0].body.innerText) || ""); } catch (e) {}
+                  try { t += ((docs[d0].body && docs[d0].body.innerText) || docs[d0].textContent || ""); } catch (e) {}
                 }
                 t = t.replace(/\s+/g, "");
                 for (var i = 0; i < labels.length; i++) { if (t.indexOf(labels[i]) >= 0) return "hit"; }
@@ -322,9 +326,13 @@ public sealed class ScrapeEngine
               for (var fi = 0; fi < frames.length; fi++) {
                 try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
               }
+              var els = docs[di].querySelectorAll("*");
+              for (var si = 0; si < els.length; si++) {
+                if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+              }
             }
             var t = "";
-            for (var d0 = 0; d0 < docs.length; d0++) { try { t += ((docs[d0].body && docs[d0].body.innerText) || "") + "\n"; } catch (e) {} }
+            for (var d0 = 0; d0 < docs.length; d0++) { try { t += (((docs[d0].body && docs[d0].body.innerText) || docs[d0].textContent || "")) + "\n"; } catch (e) {} }
 
             // 到期时间：绝对日期 / 剩余天数 / 下次自动续费时间 / 英文 canceled/expires/renews
             var expire = "";
@@ -487,18 +495,34 @@ public sealed class ScrapeEngine
             var others = {{JsonSerializer.Serialize(otherAnchors)}};
             if (!labels.length) return JSON.stringify({ ok:false, err:"labels_empty" });
             var re = new RegExp({{JsString(rule.Pattern)}}, "i");
-            // 1) 找包含任一定位文本的最内层元素作为锚点
-            //    （搜索主文档 + 所有同源 iframe：微前端页面如阿里云控制台，内容在 iframe 里）
-            var docs = [document];
-            for (var di = 0; di < docs.length; di++) {
-              var frames = docs[di].querySelectorAll("iframe");
-              for (var fi = 0; fi < frames.length; fi++) {
-                try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
+            // 文档收集：主文档 + 同源 iframe + 所有开放的 shadow root
+            // （ChatGPT 设置页改版后使用 shadow DOM，querySelectorAll 默认穿不透）
+            function collectDocs(root) {
+              var docs = [root];
+              for (var di = 0; di < docs.length; di++) {
+                var frames = docs[di].querySelectorAll("iframe");
+                for (var fi = 0; fi < frames.length; fi++) {
+                  try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
+                }
+                var els = docs[di].querySelectorAll("*");
+                for (var si = 0; si < els.length; si++) {
+                  if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+                }
               }
+              return docs;
             }
+            // 向上找父元素，可跨越 shadow root 边界（shadow 内元素的 parentElement 为 null）
+            function parentOf(el) {
+              if (!el) return null;
+              if (el.parentElement) return el.parentElement;
+              try { var r = el.getRootNode && el.getRootNode(); if (r && r.host) return r.host; } catch (e) {}
+              return null;
+            }
+            var docs = collectDocs(document);
+            // 1) 找包含任一定位文本的最内层元素作为锚点
             var anchor = null, anchorLen = 1e15;
             for (var d0 = 0; d0 < docs.length; d0++) {
-              var all = docs[d0].querySelectorAll("body *");
+              var all = docs[d0].querySelectorAll("*");
               for (var i = 0; i < all.length; i++) {
                 var t = (all[i].innerText || "").replace(/\s+/g, "");
                 if (!t) continue;
@@ -509,12 +533,12 @@ public sealed class ScrapeEngine
               }
             }
             if (!anchor) return JSON.stringify({ ok:false, err:"anchor_not_found", arg:labels.join(" / ") });
-            // 2) 从锚点向上找第一个匹配正则的容器（最多 8 层）
+            // 2) 从锚点向上找第一个匹配正则的容器（最多 12 层，改版后的页面 DOM 更深）
             var node = anchor, text = "", container = null;
-            for (var d = 0; d <= 8 && node; d++) {
+            for (var d = 0; d <= 12 && node; d++) {
               text = (node.innerText || "").trim();
               if (re.test(text)) { container = node; break; }
-              node = node.parentElement;
+              node = parentOf(node);
             }
             if (!container) return JSON.stringify({ ok:false, err:"no_match", arg:labels.join(" / "), text:(anchor.innerText||"").substring(0,600) });
             // 3) 容器内可能有多个数字（如进度条轴刻度 0% 50% 90% 100% 先于真实数值渲染），
@@ -556,7 +580,7 @@ public sealed class ScrapeEngine
               }
               var rm = rt.match(rre);
               if (rm) { reset = (rm.length > 1 && rm[1] ? rm[1] : rm[0]).trim(); rfound = true; break; }
-              rnode = rnode.parentElement;
+              rnode = parentOf(rnode);
             }
             return JSON.stringify({ ok:true, groups:g, text:text.substring(0,600), reset:reset, quality:quality });
           } catch (e) { return JSON.stringify({ ok:false, err:"script_exception", arg:String(e && e.message || e) }); }
