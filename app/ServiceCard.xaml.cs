@@ -59,6 +59,9 @@ public partial class ServiceCard : UserControl
 
     private void UpdateButtons() => CardRefreshButton.IsEnabled = !_busy && !_paused;
 
+    /// <summary>拖拽时本体留在槽位变暗（0.35）；结束后按暂停状态恢复。</summary>
+    public void SetDragDim(bool on) => CardRoot.Opacity = on ? 0.35 : (_paused ? 0.55 : 1.0);
+
     private void CardRefresh_Click(object sender, RoutedEventArgs e)
     {
         if (_service != null) RequestRefresh?.Invoke(_service);

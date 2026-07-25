@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using WinForms = System.Windows.Forms;
 
@@ -199,45 +200,55 @@ public partial class MainWindow : Window
             if (child is ServiceCard card) card.SetCtrlHint(ctrl);
     }
 
-    // ---------- 卡片拖拽排序（实时重排 + FLIP 动画） ----------
+    // ---------- 卡片拖拽排序（虚影悬浮窗 + 本体殿后 + 迟滞提交） ----------
 
     private ServiceCard? _dragCard;
-    private TranslateTransform? _dragTx;
+    private GhostWindow? _ghost;
     private System.Windows.Point _grabOffset;
+    private double? _lastCommitCur;
 
-    /// <summary>Alt+拖拽开始：卡片浮起（放大 + 阴影 + 置顶），捕获鼠标跟随。</summary>
+    /// <summary>Alt+拖拽开始：本体留槽位变暗，生成位图虚影悬浮窗跟随鼠标。</summary>
     private void OnAltDragStarted(ServiceCard card, System.Windows.Point grabOffset)
     {
         _dragCard = card;
         _grabOffset = grabOffset;
-        _dragTx = new TranslateTransform();
-        var group = new TransformGroup();
-        group.Children.Add(new ScaleTransform(1.03, 1.03, card.ActualWidth / 2, card.ActualHeight / 2));
-        group.Children.Add(_dragTx);
-        card.RenderTransform = group;
-        Panel.SetZIndex(card, 99);
-        card.Effect = new System.Windows.Media.Effects.DropShadowEffect
-        {
-            BlurRadius = 16,
-            Opacity = 0.5,
-            ShadowDepth = 3,
-            Color = Colors.Black,
-        };
-        card.CaptureMouse();
-        card.MouseMove += Drag_MouseMove;
-        card.MouseLeftButtonUp += Drag_MouseUp;
+        _lastCommitCur = null;
+        card.SetDragDim(true);
+
+        var bmp = new RenderTargetBitmap(
+            (int)Math.Ceiling(card.ActualWidth), (int)Math.Ceiling(card.ActualHeight),
+            96, 96, PixelFormats.Pbgra32);
+        bmp.Render(card);
+        bmp.Freeze();
+        _ghost = new GhostWindow(bmp, grabOffset.X, grabOffset.Y);
+        UpdateGhostPosition();
+        _ghost.Show();
+
+        CaptureMouse(); // 主窗口捕获鼠标：虚影拖出窗口范围也能持续跟踪
+        MouseMove += Drag_MouseMove;
+        MouseLeftButtonUp += Drag_MouseUp;
+    }
+
+    /// <summary>虚影位置 = 面板原点的屏幕坐标 + 光标在面板内的位置（含 DPI 换算）。</summary>
+    private void UpdateGhostPosition()
+    {
+        if (_ghost == null) return;
+        var p = Mouse.GetPosition(CardsPanel);
+        var origin = CardsPanel.PointToScreen(new System.Windows.Point(0, 0));
+        var dpi = VisualTreeHelper.GetDpi(this);
+        _ghost.MoveTo(new System.Windows.Point(
+            origin.X / dpi.DpiScaleX + p.X,
+            origin.Y / dpi.DpiScaleY + p.Y));
     }
 
     private void Drag_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_dragCard == null || _dragTx == null) return;
-        // 被拖卡片跟随鼠标（RenderTransform 不改变布局，TranslatePoint 拿到的仍是布局位置）
-        var p = e.GetPosition(CardsPanel);
-        var layoutPos = _dragCard.TranslatePoint(new System.Windows.Point(0, 0), CardsPanel);
-        _dragTx.X = p.X - _grabOffset.X - layoutPos.X;
-        _dragTx.Y = p.Y - _grabOffset.Y - layoutPos.Y;
+        if (_dragCard == null) return;
+        UpdateGhostPosition();
 
-        // 越过某卡片中点 → 就地把被拖卡片移到该位置，其他卡片动画让位
+        // 虚影中心越过某卡片中点 → 提交换位（本体槽位变化，其他卡片动画让位）。
+        // 迟滞带：距上次提交点不足 24 DIP 不再换位，防止动画期间边界振荡（抖动根源）
+        var p = e.GetPosition(CardsPanel);
         var cards = CardsPanel.Children.OfType<ServiceCard>().ToList();
         bool horiz = _config.IsHorizontal;
         double cur = horiz ? p.X : p.Y;
@@ -250,8 +261,10 @@ public partial class MainWindow : Window
         }
         int current = cards.IndexOf(_dragCard);
         int target = index > current ? index - 1 : index;
-        if (target != current)
-            ReorderWithAnimation(_dragCard, target);
+        if (target == current) return;
+        if (_lastCommitCur is double last && Math.Abs(cur - last) < 24) return;
+        _lastCommitCur = cur;
+        ReorderWithAnimation(_dragCard, target);
     }
 
     /// <summary>FLIP：记录旧布局位置 → 就地重排 → 其他卡片从旧位置缓出动画滑到新位置。</summary>
@@ -285,19 +298,18 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>松手：复位浮起效果，按面板顺序写回配置。</summary>
+    /// <summary>松手：关闭虚影、本体恢复，按面板顺序写回配置。</summary>
     private void Drag_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (_dragCard == null) return;
         var card = _dragCard;
-        card.ReleaseMouseCapture();
-        card.MouseMove -= Drag_MouseMove;
-        card.MouseLeftButtonUp -= Drag_MouseUp;
-        card.RenderTransform = null;
-        card.Effect = null;
-        Panel.SetZIndex(card, 0);
+        ReleaseMouseCapture();
+        MouseMove -= Drag_MouseMove;
+        MouseLeftButtonUp -= Drag_MouseUp;
+        _ghost?.Close();
+        _ghost = null;
+        card.SetDragDim(false);
         _dragCard = null;
-        _dragTx = null;
 
         // 启用服务按面板新顺序重排，禁用服务保持原有相对位置
         var enabledOrder = CardsPanel.Children.OfType<ServiceCard>()
