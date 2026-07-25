@@ -191,8 +191,9 @@ public partial class ServiceCard : UserControl
         {
             int days = (int)Math.Ceiling((expire - DateTime.Now).TotalDays);
             parts.Add(days < 0 ? I18n.T("subscription_expired") : I18n.T("subscription_expires_in_days", days));
-            if (days < 0 || days <= 3) color = DangerColor;
-            else if (days <= 7) color = WarnColor;
+            // 到期预警：已过期或剩 ≤1 天橙红（Ahead），剩 ≤5 天黄（Near）
+            if (days < 0 || days <= 1) color = _theme.Ahead;
+            else if (days <= 5) color = _theme.Near;
         }
         if (sub.AutoRenew is { } auto)
             parts.Add(I18n.T(auto ? "auto_renew_on" : "auto_renew_off"));
@@ -331,17 +332,28 @@ public partial class ServiceCard : UserControl
         {
             // 重置临近提醒：窗口大于 24 小时（7 天/30 天类）且重置时间已进入 24 小时内 → 黄色，
             // 提醒用户窗口快重置、剩余额度尽快用。5 小时等短窗口恒 <24h，不参与以免长期黄色。
-            bool resetSoon = false;
-            if (rule.ResetAt is { } ra)
+            // 重置临近分级预警：短窗口（≤24h，如 5 小时）剩 1 小时黄 / 30 分钟橙红；
+            // 长窗口（7 天/30 天）剩 24 小时黄 / 2 小时橙红。窗口未知按长窗口规则。
+            int resetUrgency = 0; // 0 无 / 1 黄（Near）/ 2 橙红（Ahead）
+            if (rule.ResetAt is { } ra && ra > DateTime.Now.AddHours(-6))
             {
+                double remainMin = (ra - DateTime.Now).TotalMinutes;
                 var windowHours = PaceBaseline.WindowHours(rule.Label);
-                resetSoon = ra > DateTime.Now.AddHours(-6) && ra <= DateTime.Now.AddHours(24) &&
-                            (windowHours == null || windowHours > 24);
+                bool shortWindow = windowHours is <= 24;
+                if (shortWindow)
+                    resetUrgency = remainMin <= 30 ? 2 : remainMin <= 60 ? 1 : 0;
+                else
+                    resetUrgency = remainMin <= 120 ? 2 : remainMin <= 24 * 60 ? 1 : 0;
             }
             panel.Children.Add(new TextBlock
             {
                 Text = small,
-                Foreground = new SolidColorBrush(resetSoon ? theme.Near : (Color)ColorConverter.ConvertFromString("#8A8A95")),
+                Foreground = new SolidColorBrush(resetUrgency switch
+                {
+                    2 => theme.Ahead,
+                    1 => theme.Near,
+                    _ => (Color)ColorConverter.ConvertFromString("#8A8A95"),
+                }),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 3, 0, 0),
             });
