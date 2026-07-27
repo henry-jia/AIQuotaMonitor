@@ -34,7 +34,10 @@
             </StackPanel>
             <StackPanel x:Name="ErrorPanel" Visibility="Collapsed" Margin="0,9,0,1">
                 <TextBlock x:Name="ErrorText" Foreground="#E5534B" FontSize="11" TextWrapping="Wrap"/>
-                <Button x:Name="ErrorLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Login_Click"/>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button x:Name="ErrorLoginButton" Content="Sign in" Style="{StaticResource AccentButtonStyle}" Click="Login_Click"/>
+                    <Button x:Name="ErrorViewButton" Content="View page" Style="{StaticResource AccentButtonStyle}" Click="ViewPage_Click"/>
+                </StackPanel>
             </StackPanel>
             </StackPanel>
         </Grid>

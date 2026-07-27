@@ -5,7 +5,8 @@ using Microsoft.Web.WebView2.Core;
 namespace AIQuotaMonitor;
 
 /// <summary>
-/// 内置浏览器登录窗口：与抓取引擎共享用户数据目录（同一域名只需登录一次）。
+/// 内置浏览器窗口：与抓取引擎共享用户数据目录（同一域名只需登录一次）。
+/// 两种用途：登录（viewOnly=false）与查看页面核对内容（viewOnly=true，仅标题不同）。
 /// 关闭窗口后由主窗口触发该服务的重新抓取。
 /// </summary>
 public partial class LoginWindow : Window
@@ -13,10 +14,10 @@ public partial class LoginWindow : Window
     private readonly CoreWebView2Environment _env;
     private readonly string _url;
 
-    public LoginWindow(CoreWebView2Environment env, string url, string serviceName)
+    public LoginWindow(CoreWebView2Environment env, string url, string serviceName, bool viewOnly = false)
     {
         InitializeComponent();
-        Title = I18n.T("login_window_title", serviceName);
+        Title = I18n.T(viewOnly ? "view_window_title" : "login_window_title", serviceName);
         _env = env;
         _url = url;
         Loaded += LoginWindow_Loaded;

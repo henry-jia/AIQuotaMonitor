@@ -146,31 +146,53 @@ public sealed class ScrapeEngine
                 }
             }
 
-            // 5) 汇总状态：所有规则都抓不到值，视为「抓取失败（可能未登录或页面结构变化）」
+            // 5) 汇总状态：所有规则都抓不到值时，区分「未登录」与「已登录但页面结构变化」——
+            //    后者不该再引导用户去登录，而是说明定位文本失配并给「查看页面」入口
             if (result.Rules.Count > 0 && result.Rules.TrueForAll(r => r.Percent == null))
             {
                 result.Status = ScrapeStatus.Error;
-                result.SuggestLogin = true;
-                var sb = new System.Text.StringBuilder(I18n.T("all_rules_failed"));
-                // 逐条规则的具体失败原因（配置错误、正则未命中等），不再被笼统提示吞掉
-                foreach (var r in result.Rules.Where(r => r.Error != null))
-                    sb.Append("\n" + I18n.T("rule_error_line", r.Label, r.Error!));
-                // 附上页面实况（标题 + 正文开头），便于判断是未登录还是标签/正则不对
+                // 页面实况：标题 + 正文开头 + 密码框数量。既附进错误信息，也用于登录态推断
+                string? title = null, pageText = null;
+                int pwdCount = 0;
                 try
                 {
                     const string infoJs =
                         "JSON.stringify({title:document.title||''," +
-                        "text:((document.body&&document.body.innerText)||'').substring(0,300)})";
+                        "text:((document.body&&document.body.innerText)||'').substring(0,300)," +
+                        "pwd:document.querySelectorAll('input[type=password]').length})";
                     var info = await EvalStringAsync(wv, infoJs);
                     using var doc = JsonDocument.Parse(info);
-                    var title = doc.RootElement.GetProperty("title").GetString();
-                    var pageText = doc.RootElement.GetProperty("text").GetString();
-                    if (!string.IsNullOrWhiteSpace(title)) sb.Append("\n" + I18n.T("page_title_line", title));
-                    if (!string.IsNullOrWhiteSpace(pageText))
-                        sb.Append("\n" + I18n.T("page_body_line", pageText.Replace("\r", " ").Replace("\n", " ⏎ ")));
+                    title = doc.RootElement.GetProperty("title").GetString();
+                    pageText = doc.RootElement.GetProperty("text").GetString();
+                    pwdCount = doc.RootElement.GetProperty("pwd").GetInt32();
                 }
-                catch { /* 实况获取失败不影响主错误信息 */ }
-                sb.Append("\n" + I18n.T("error_footer"));
+                catch { /* 实况获取失败时按「可能未登录」保守处理 */ }
+
+                // 登录态推断：配置了登录指示选择器且走到这里 = 指示未命中 = 已登录；
+                // 页面有密码框，或短页面带登录关键词 → 大概率未登录；页面空白无法判断时保守归为未登录
+                bool likelyLoggedOut;
+                if (!string.IsNullOrWhiteSpace(service.LoginIndicatorSelector))
+                    likelyLoggedOut = false;
+                else if (string.IsNullOrWhiteSpace(pageText))
+                    likelyLoggedOut = true;
+                else
+                {
+                    bool loginHint = System.Text.RegularExpressions.Regex.IsMatch(
+                        title + " " + pageText, @"登录|登陆|扫码|sign[\s-]?in|log[\s-]?in|password|密码",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    likelyLoggedOut = pwdCount > 0 || (pageText.Length < 800 && loginHint);
+                }
+                result.SuggestLogin = likelyLoggedOut;
+
+                var sb = new System.Text.StringBuilder(
+                    I18n.T(likelyLoggedOut ? "all_rules_failed" : "all_rules_failed_structure"));
+                // 逐条规则的具体失败原因（配置错误、正则未命中等），不再被笼统提示吞掉
+                foreach (var r in result.Rules.Where(r => r.Error != null))
+                    sb.Append("\n" + I18n.T("rule_error_line", r.Label, r.Error!));
+                if (!string.IsNullOrWhiteSpace(title)) sb.Append("\n" + I18n.T("page_title_line", title));
+                if (!string.IsNullOrWhiteSpace(pageText))
+                    sb.Append("\n" + I18n.T("page_body_line", pageText.Replace("\r", " ").Replace("\n", " ⏎ ")));
+                sb.Append("\n" + I18n.T(likelyLoggedOut ? "error_footer" : "error_footer_view"));
                 result.ErrorMessage = sb.ToString();
             }
             else

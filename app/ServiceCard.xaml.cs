@@ -13,6 +13,7 @@ public partial class ServiceCard : UserControl
     private static readonly Color DangerColor = (Color)ColorConverter.ConvertFromString("#E5534B");
 
     public event Action<ServiceConfig>? RequestLogin;
+    public event Action<ServiceConfig>? RequestViewPage;
     public event Action<ServiceConfig>? RequestRefresh;
     public event Action<ServiceConfig>? RequestPauseToggle;
     private ServiceConfig? _service;
@@ -37,6 +38,7 @@ public partial class ServiceCard : UserControl
         NeedLoginText.Text = I18n.T("need_login_hint");
         NeedLoginButton.Content = I18n.T("go_login");
         ErrorLoginButton.Content = I18n.T("go_login");
+        ErrorViewButton.Content = I18n.T("view_page");
     }
 
     /// <summary>刷新进行中禁用本卡刷新按钮（由主窗口统一控制）。</summary>
@@ -198,7 +200,9 @@ public partial class ServiceCard : UserControl
             string msg = result.ErrorMessage ?? I18n.T("unknown_error");
             ErrorText.Text = msg.Length > 90 ? msg[..90] + "…" : msg;
             ErrorText.ToolTip = msg;
+            // 未登录 → 引导登录；已登录但页面结构变了 → 给「查看页面」入口核对实际内容
             ErrorLoginButton.Visibility = result.SuggestLogin ? Visibility.Visible : Visibility.Collapsed;
+            ErrorViewButton.Visibility = result.SuggestLogin ? Visibility.Collapsed : Visibility.Visible;
             return;
         }
 
@@ -250,6 +254,11 @@ public partial class ServiceCard : UserControl
     private void Login_Click(object sender, RoutedEventArgs e)
     {
         if (_service != null) RequestLogin?.Invoke(_service);
+    }
+
+    private void ViewPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_service != null) RequestViewPage?.Invoke(_service);
     }
 
     private static FrameworkElement BuildRow(RuleResult rule, ResolvedTheme theme, AppConfig cfg)

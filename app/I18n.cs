@@ -109,10 +109,13 @@ public static class I18n
         ["nav_failed_detail"] = "页面导航失败（当前地址：{0}，标题：{1}）。请检查网址是否可访问，或是否被重定向到了登录/验证页",
         ["nav_failed"] = "页面导航失败，请检查网址是否可访问",
         ["all_rules_failed"] = "所有规则都未取到数值：可能未登录，或页面结构已变化。",
+        ["all_rules_failed_structure"] = "所有规则都未取到数值：检测到已是登录状态，应该是页面结构变了，定位文本与页面上显示的文字对不上。",
         ["rule_error_line"] = "「{0}」{1}",
         ["page_title_line"] = "页面标题：{0}",
         ["page_body_line"] = "页面正文开头：{0}",
         ["error_footer"] = "可点「去登录」确认登录状态，或在设置中用「测试抓取」调试选择器与正则。",
+        ["error_footer_view"] = "点「查看页面」核对页面实际内容，然后在设置里把「定位文本」改成页面上显示的文字（多个写法用 | 分隔）。",
+        ["view_page"] = "查看页面",
         ["script_failed"] = "执行脚本失败: {0}",
         ["parse_failed"] = "解析结果失败: {0}",
         ["fraction_needs_two_groups"] = @"用量对规则需要两个捕获组（预设正则 (\d+)\s*/\s*(\d+)）",
@@ -128,6 +131,7 @@ public static class I18n
 
         // ---------- 登录窗口 ----------
         ["login_window_title"] = "登录 - {0}（登录完成后直接关闭本窗口）",
+        ["view_window_title"] = "查看页面 - {0}（核对完成后直接关闭本窗口）",
         ["init_browser_failed"] = "初始化浏览器失败：\n",
 
         // ---------- 测试截图 ----------
@@ -302,10 +306,13 @@ public static class I18n
         ["nav_failed_detail"] = "Navigation failed (current URL: {0}, title: {1}). Check the URL is reachable, or whether you were redirected to a login/verification page",
         ["nav_failed"] = "Navigation failed. Check the URL is reachable",
         ["all_rules_failed"] = "No rule produced a value: you may be signed out, or the page structure has changed.",
+        ["all_rules_failed_structure"] = "No rule produced a value: you appear to be signed in — the page structure has likely changed and the match text no longer matches anything on the page.",
         ["rule_error_line"] = "{0}: {1}",
         ["page_title_line"] = "Page title: {0}",
         ["page_body_line"] = "Page body starts with: {0}",
         ["error_footer"] = "Click \"Sign in\" to check login state, or use \"Test scrape\" in Settings to debug selectors and regex.",
+        ["error_footer_view"] = "Click \"View page\" to see what the page actually shows, then update \"Match text\" in Settings to the text on the page (separate variants with |).",
+        ["view_page"] = "View page",
         ["script_failed"] = "Script execution failed: {0}",
         ["parse_failed"] = "Failed to parse result: {0}",
         ["fraction_needs_two_groups"] = @"Fraction rule needs two capture groups (preset regex (\d+)\s*/\s*(\d+))",
@@ -321,6 +328,7 @@ public static class I18n
 
         // ---------- Login window ----------
         ["login_window_title"] = "Sign in - {0} (close this window when done)",
+        ["view_window_title"] = "View page - {0} (close this window when done)",
         ["init_browser_failed"] = "Failed to initialize browser:\n",
 
         // ---------- Test shot ----------

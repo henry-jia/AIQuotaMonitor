@@ -150,6 +150,7 @@ public partial class MainWindow : Window
         {
             var card = new ServiceCard { Tag = svc };
             card.RequestLogin += OnRequestLogin;
+            card.RequestViewPage += OnRequestViewPage;
             card.RequestRefresh += OnRequestRefresh;
             card.RequestPauseToggle += OnCardPauseToggle;
             card.AltDragStarted += OnAltDragStarted;
@@ -490,12 +491,17 @@ public partial class MainWindow : Window
         _ = RefreshDueAsync(waitForLock: true);
     }
 
-    private async void OnRequestLogin(ServiceConfig svc)
+    private void OnRequestLogin(ServiceConfig svc) => OpenServiceWindow(svc, viewOnly: false);
+
+    private void OnRequestViewPage(ServiceConfig svc) => OpenServiceWindow(svc, viewOnly: true);
+
+    /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。</summary>
+    private async void OpenServiceWindow(ServiceConfig svc, bool viewOnly)
     {
         try
         {
             await Engine.EnsureInitializedAsync();
-            var login = new LoginWindow(Engine.Env!, svc.Url, svc.Name) { Owner = this };
+            var login = new LoginWindow(Engine.Env!, svc.Url, svc.Name, viewOnly) { Owner = this };
             login.Closed += async (s, e) =>
             {
                 _nextDue[svc] = DateTime.MinValue;
