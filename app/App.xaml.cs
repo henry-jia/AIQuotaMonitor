@@ -58,6 +58,25 @@ public partial class App : Application
             return;
         }
 
+        // 历史窗口截图模式：AIQuotaMonitor.exe --test-history-shot out.png [--lang en]
+        int historyShotIndex = Array.IndexOf(e.Args, "--test-history-shot");
+        if (historyShotIndex >= 0 && historyShotIndex + 1 < e.Args.Length)
+        {
+            string outPath = e.Args[historyShotIndex + 1];
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            try
+            {
+                TestShot.RunHistory(outPath);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(I18n.T("testshot_failed") + ex.Message, "AIQuotaMonitor",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            Shutdown();
+            return;
+        }
+
         // 动画帧渲染模式：AIQuotaMonitor.exe --test-frames dir [--lang zh]（用于合成演示 GIF）
         int framesIndex = Array.IndexOf(e.Args, "--test-frames");
         if (framesIndex >= 0 && framesIndex + 1 < e.Args.Length)
@@ -78,6 +97,17 @@ public partial class App : Application
         }
 
         var config = ConfigStore.Load();
+        // 服务稳定 id：旧配置可能缺 id，补齐一次并持久化（历史/上次成功数据按 id 关联）
+        bool anyIdAssigned = false;
+        foreach (var svc in config.Services)
+        {
+            if (string.IsNullOrEmpty(svc.Id))
+            {
+                svc.Id = Guid.NewGuid().ToString("N");
+                anyIdAssigned = true;
+            }
+        }
+        if (anyIdAssigned) ConfigStore.Save(config);
         I18n.Initialize(langArg ?? config.Language);
         var window = new MainWindow(config);
         window.Show();

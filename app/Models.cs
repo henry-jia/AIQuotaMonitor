@@ -80,6 +80,10 @@ public class AppConfig : ObservableObject
     private ThemeConfig _theme = new();
     public ThemeConfig Theme { get => _theme; set => Set(ref _theme, value); }
 
+    /// <summary>记录用量历史到本机 history.jsonl（仅百分比样本，存本机不上传）。</summary>
+    private bool _recordHistory = true;
+    public bool RecordHistory { get => _recordHistory; set => Set(ref _recordHistory, value); }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsHorizontal => Layout == "horizontal";
 }
@@ -111,6 +115,11 @@ public class ThemeConfig : ObservableObject
 
 public class ServiceConfig : ObservableObject
 {
+    /// <summary>稳定唯一标识（GUID 字符串）：用量历史与上次成功数据按此关联，
+    /// 编辑服务配置不会断开历史序列。旧配置可空，启动时自动补齐并持久化。</summary>
+    private string? _id;
+    public string? Id { get => _id; set => Set(ref _id, value); }
+
     private string _name = "";
     public string Name { get => _name; set => Set(ref _name, value); }
 
@@ -216,6 +225,7 @@ public class RuleResult
 
 public class ServiceScrapeResult
 {
+    [System.Text.Json.Serialization.JsonIgnore]
     public ServiceConfig Service = new();
     public ScrapeStatus Status = ScrapeStatus.Ok;
     public string? ErrorMessage;
@@ -225,4 +235,12 @@ public class ServiceScrapeResult
     public SubscriptionInfo? Subscription;
     public DateTimeOffset? SubscriptionFetchedAt;
     public DateTimeOffset Time = DateTimeOffset.Now;
+
+    /// <summary>陈旧数据回退：非 null 表示本结果是「上次成功数据 + 本次刷新失败」的合成视图，
+    /// 值为本次失败的错误信息（卡片警告行 tooltip 完整展示）。不参与持久化。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? StaleError;
+    /// <summary>启动时从 lastgood.json 恢复的陈旧数据（措辞为「上次会话数据」，不声称刷新失败）。不参与持久化。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool StaleFromDisk;
 }

@@ -39,6 +39,51 @@ public static class TestShot
         Render(content, InsertSuffix(outPath, "_global"), window.Width, window.Height);
     }
 
+    /// <summary>历史窗口截图：合成锯齿样本（24h 内两次重置 + 7 天单调爬升），纯离屏渲染不碰真实历史文件。</summary>
+    public static void RunHistory(string outPath)
+    {
+        var svc = new ServiceConfig { Id = "sample-a", Name = "星言 Pro", Url = "https://example.com/usage" };
+        var config = new AppConfig { Services = new List<ServiceConfig> { svc } };
+        var now = DateTimeOffset.Now;
+        var samples = new List<HistorySample>();
+
+        // 5 小时用量：24h 每 15 分钟一点，每 5h 一周期（重置锯齿）
+        for (int i = 0; i <= 96; i++)
+        {
+            var t = now.AddHours(-24 + i * 0.25);
+            double phase = i * 0.25 % 5;
+            double pct = phase / 5.0 * 78;
+            samples.Add(new HistorySample
+            {
+                T = t,
+                Svc = svc.Id!,
+                Rule = "5 小时用量",
+                Pct = pct,
+                Detail = $"{pct / 100 * 5:0.#} / 5 小时",
+                ResetAt = t.AddHours(5 - phase),
+            });
+        }
+        // 7 天用量：单调爬升
+        for (int i = 0; i <= 84; i++)
+        {
+            var t = now.AddHours(-7 * 24 + i * 2.0);
+            double pct = 18 + i * 0.8;
+            samples.Add(new HistorySample
+            {
+                T = t,
+                Svc = svc.Id!,
+                Rule = "7 天用量",
+                Pct = pct,
+                Detail = $"{pct / 100 * 7:0.#} / 7 天",
+                ResetAt = now.AddHours(3 * 24),
+            });
+        }
+
+        var window = new HistoryWindow(svc, "5 小时用量", config, samples);
+        var content = (FrameworkElement)window.Content;
+        Render(content, outPath, window.Width, window.Height);
+    }
+
     private static string InsertSuffix(string path, string suffix)
     {
         string dir = Path.GetDirectoryName(Path.GetFullPath(path)) ?? "";
@@ -48,9 +93,10 @@ public static class TestShot
 
     private static void Render(FrameworkElement content, string outPath, double? width = null, double? height = null)
     {
-        // 不显示窗口，直接对根元素做完整布局后渲染
+        // 不显示窗口，直接对根元素做完整布局后渲染。
+        // 给了显式尺寸就按它 Arrange（Grid 的 * 行无固有高度，DesiredSize 会塌成只剩 Auto 行）
         content.Measure(new System.Windows.Size(width ?? double.PositiveInfinity, height ?? double.PositiveInfinity));
-        var size = content.DesiredSize;
+        var size = new System.Windows.Size(width ?? content.DesiredSize.Width, height ?? content.DesiredSize.Height);
         content.Arrange(new Rect(0, 0, size.Width, size.Height));
         content.UpdateLayout();
 
@@ -99,9 +145,9 @@ public static class TestShot
 
     private static (AppConfig, Dictionary<ServiceConfig, ServiceScrapeResult>) BuildFramesSample()
     {
-        var a = new ServiceConfig { Name = "星言 Pro", Url = "https://example.com/usage" };
-        var b = new ServiceConfig { Name = "云悟 Team", Url = "https://example.com/panel" };
-        var c = new ServiceConfig { Name = "智海 Max", Url = "https://example.com/console" };
+        var a = new ServiceConfig { Id = "sample-a", Name = "星言 Pro", Url = "https://example.com/usage" };
+        var b = new ServiceConfig { Id = "sample-b", Name = "云悟 Team", Url = "https://example.com/panel" };
+        var c = new ServiceConfig { Id = "sample-c", Name = "智海 Max", Url = "https://example.com/console" };
         var config = new AppConfig { Services = new List<ServiceConfig> { a, b, c } };
 
         var results = new Dictionary<ServiceConfig, ServiceScrapeResult>
@@ -144,6 +190,7 @@ public static class TestShot
     {
         var a = new ServiceConfig
         {
+            Id = "sample-a",
             Name = "星言 Pro",
             Url = "https://example.com/usage",
             ExtraWaitSeconds = 3,
@@ -153,20 +200,22 @@ public static class TestShot
                 new() { Label = "7 天用量", Pattern = QuotaRule.DefaultPercentPattern },
             },
         };
-        var b = new ServiceConfig { Name = "云悟 Team", Url = "https://example.com/panel" };
+        var b = new ServiceConfig { Id = "sample-b", Name = "云悟 Team", Url = "https://example.com/panel" };
         return new AppConfig { Services = new List<ServiceConfig> { a, b } };
     }
 
     private static (AppConfig, Dictionary<ServiceConfig, ServiceScrapeResult>) BuildSample(bool horizontal)
     {
-        var a = new ServiceConfig { Name = "星言 Pro", Url = "https://example.com/usage" };
-        var b = new ServiceConfig { Name = "云悟 Team", Url = "https://example.com/panel" };
-        var c = new ServiceConfig { Name = "智海 Max", Url = "https://example.com/console" };
+        var a = new ServiceConfig { Id = "sample-a", Name = "星言 Pro", Url = "https://example.com/usage" };
+        var b = new ServiceConfig { Id = "sample-b", Name = "云悟 Team", Url = "https://example.com/panel" };
+        var c = new ServiceConfig { Id = "sample-c", Name = "智海 Max", Url = "https://example.com/console" };
+        var d = new ServiceConfig { Id = "sample-d", Name = "澹月 Lite", Url = "https://example.com/lite" };
+        var e = new ServiceConfig { Id = "sample-e", Name = "智海 Air", Url = "https://example.com/air" };
 
         var config = new AppConfig
         {
             Layout = horizontal ? "horizontal" : "vertical",
-            Services = new List<ServiceConfig> { a, b, c },
+            Services = new List<ServiceConfig> { a, b, c, d, e },
         };
 
         var results = new Dictionary<ServiceConfig, ServiceScrapeResult>
@@ -194,6 +243,31 @@ public static class TestShot
                 Status = ScrapeStatus.Error,
                 SuggestLogin = true,
                 ErrorMessage = I18n.T("test_sample_error"),
+            },
+            // 陈旧数据回退：刷新失败 → 琥珀警告行 + 上次数据
+            [d] = new ServiceScrapeResult
+            {
+                Service = d,
+                Status = ScrapeStatus.Ok,
+                StaleError = I18n.T("test_sample_error"),
+                Time = DateTimeOffset.Now.AddMinutes(-65),
+                Rules = new List<RuleResult>
+                {
+                    new() { Label = "5 小时用量", Percent = 55, Detail = "2.7 / 5 小时", ResetText = "2 小时后重置", ResetAt = DateTime.Now.AddHours(2) },
+                },
+            },
+            // 陈旧 + 疑似未登录 → 警告行 + 「去登录」按钮
+            [e] = new ServiceScrapeResult
+            {
+                Service = e,
+                Status = ScrapeStatus.Ok,
+                StaleError = I18n.T("test_sample_error"),
+                SuggestLogin = true,
+                Time = DateTimeOffset.Now.AddMinutes(-65),
+                Rules = new List<RuleResult>
+                {
+                    new() { Label = "7 天用量", Percent = 71, Detail = "5.0 / 7 天", ResetText = "4 天后重置", ResetAt = DateTime.Now.AddDays(4) },
+                },
             },
         };
         return (config, results);

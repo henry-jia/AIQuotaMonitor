@@ -27,6 +27,10 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private readonly Dictionary<ServiceConfig, ServiceScrapeResult> _results = new();
     private readonly Dictionary<ServiceConfig, DateTime> _nextDue = new();
+    /// <summary>每个服务最后一次成功抓取结果（key = 服务稳定 id），刷新失败时的回退数据源。</summary>
+    private readonly Dictionary<string, ServiceScrapeResult> _lastGood = new();
+    /// <summary>已打开的历史窗口（key = 服务稳定 id），重开时聚焦而非重复打开。</summary>
+    private readonly Dictionary<string, HistoryWindow> _historyWindows = new();
     private DispatcherTimer? _timer;
     private DispatcherTimer? _uiTimer;
     private WinForms.NotifyIcon? _tray;
@@ -68,6 +72,7 @@ public partial class MainWindow : Window
             }
             InitTray();
             Loaded += MainWindow_Loaded;
+            SeedLastGood();
         }
         ApplyConfig();
     }
@@ -372,7 +377,22 @@ public partial class MainWindow : Window
                     res.Subscription = prev.Subscription;
                     res.SubscriptionFetchedAt = prev.SubscriptionFetchedAt;
                 }
-                _results[svc] = res;
+                if (res.Status == ScrapeStatus.Ok && svc.Id != null)
+                {
+                    _lastGood[svc.Id] = res;
+                    LastGoodStore.Save(BuildLastGoodSnapshot());
+                    RecordHistory(svc, res);
+                    _results[svc] = res;
+                }
+                else if (res.Status == ScrapeStatus.Error && svc.Id != null && _lastGood.TryGetValue(svc.Id, out var good))
+                {
+                    // 刷新失败回退到最后一次成功数据 + 卡片显示警告（优于整张卡片变红字错误）
+                    _results[svc] = ComposeStale(good, res, fromDisk: false);
+                }
+                else
+                {
+                    _results[svc] = res;
+                }
                 _nextDue[svc] = DateTime.Now.AddMinutes(Math.Max(1, svc.RefreshIntervalMinutes ?? _config.RefreshIntervalMinutes));
                 NotifyIfLoginNeeded(svc, prev, res);
                 UpdateCard(svc, res);
@@ -455,11 +475,70 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>合成可显示的「陈旧数据」结果：行用上次成功数据（Status=Ok 使卡片正常渲染行），
+    /// 附带陈旧标记由卡片渲染警告行；Time 保留数据的原时间，与警告行一致。</summary>
+    private static ServiceScrapeResult ComposeStale(ServiceScrapeResult good, ServiceScrapeResult? failed, bool fromDisk) => new()
+    {
+        Service = good.Service,
+        Status = ScrapeStatus.Ok,
+        Rules = good.Rules,
+        Subscription = good.Subscription,
+        SubscriptionFetchedAt = good.SubscriptionFetchedAt,
+        SuggestLogin = failed?.SuggestLogin ?? false,
+        StaleError = failed?.ErrorMessage,
+        StaleFromDisk = fromDisk,
+        Time = good.Time,
+    };
+
+    /// <summary>启动时从 lastgood.json 恢复上次成功结果：卡片立即显示上次会话数据（标陈旧），首次成功刷新后替换。</summary>
+    private void SeedLastGood()
+    {
+        foreach (var kv in LastGoodStore.Load())
+        {
+            var svc = _config.Services.FirstOrDefault(s => s.Id == kv.Key);
+            if (svc == null || kv.Value.Status != ScrapeStatus.Ok || kv.Value.Rules.Count == 0) continue;
+            kv.Value.Service = svc; // 恢复的结果不含 Service 实例，重新挂到当前配置的活实例
+            _lastGood[kv.Key] = kv.Value;
+            _results[svc] = ComposeStale(kv.Value, failed: null, fromDisk: true);
+        }
+    }
+
+    /// <summary>lastgood 快照：只保留当前配置仍存在的服务（顺带清理已删除服务的条目）。</summary>
+    private Dictionary<string, ServiceScrapeResult> BuildLastGoodSnapshot()
+    {
+        var snap = new Dictionary<string, ServiceScrapeResult>();
+        foreach (var s in _config.Services)
+            if (s.Id != null && _lastGood.TryGetValue(s.Id, out var r)) snap[s.Id] = r;
+        return snap;
+    }
+
+    /// <summary>成功抓取后按规则各留一条历史样本（仅百分比，存本机；全局设置可关闭）。</summary>
+    private void RecordHistory(ServiceConfig svc, ServiceScrapeResult res)
+    {
+        if (!_config.RecordHistory || svc.Id == null) return;
+        var samples = new List<HistorySample>();
+        foreach (var r in res.Rules)
+        {
+            if (r.Error != null || r.Percent == null) continue;
+            samples.Add(new HistorySample
+            {
+                T = res.Time,
+                Svc = svc.Id,
+                Rule = r.Label,
+                Pct = r.Percent.Value,
+                Detail = r.Detail,
+                ResetAt = r.ResetAt,
+            });
+        }
+        HistoryStore.Append(samples);
+    }
+
     /// <summary>服务从正常变为「需要登录」时弹托盘气泡提醒（如阿里云会话级票据失效）。</summary>
     private void NotifyIfLoginNeeded(ServiceConfig svc, ServiceScrapeResult? prev, ServiceScrapeResult res)
     {
         static bool NeedsLogin(ServiceScrapeResult r) =>
-            r.Status == ScrapeStatus.NeedLogin || (r.Status == ScrapeStatus.Error && r.SuggestLogin);
+            r.Status == ScrapeStatus.NeedLogin || (r.Status == ScrapeStatus.Error && r.SuggestLogin)
+            || (r.StaleError != null && r.SuggestLogin); // 陈旧视图+建议登录期间不重复弹气泡
         if (!NeedsLogin(res) || (prev != null && NeedsLogin(prev)) || _tray == null) return;
         try
         {
@@ -495,6 +574,22 @@ public partial class MainWindow : Window
 
     private void OnRequestViewPage(ServiceConfig svc) => OpenServiceWindow(svc, viewOnly: true);
 
+    /// <summary>点击配额行打开用量历史窗口；同服务窗口已开则聚焦并切到对应规则。</summary>
+    private void OnRequestHistory(ServiceConfig svc, string ruleLabel)
+    {
+        if (_testMode || svc.Id == null) return;
+        if (_historyWindows.TryGetValue(svc.Id, out var open))
+        {
+            open.FocusRule(ruleLabel);
+            open.Activate();
+            return;
+        }
+        var win = new HistoryWindow(svc, ruleLabel, _config) { Owner = this };
+        _historyWindows[svc.Id] = win;
+        win.Closed += (s, e) => _historyWindows.Remove(svc.Id);
+        win.Show();
+    }
+
     /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。</summary>
     private async void OpenServiceWindow(ServiceConfig svc, bool viewOnly)
     {
@@ -525,8 +620,34 @@ public partial class MainWindow : Window
         // 按住任意空白处拖动（按钮除外），拖动结束自动保存位置
         if (e.LeftButton == MouseButtonState.Pressed && !IsOnButton(e.OriginalSource as DependencyObject))
         {
+            // DragMove 的 modal loop 会吞掉 MouseUp，点击判定放这里：松手后无位移 = 点击，
+            // 落在配额行上则打开历史窗口（按住拖动仍照常拖窗口）
+            var down = Mouse.GetPosition(this);
+            var source = e.OriginalSource as DependencyObject;
             DragMove();
             SavePosition();
+            var up = Mouse.GetPosition(this);
+            if (Math.Abs(up.X - down.X) < 5 && Math.Abs(up.Y - down.Y) < 5)
+                TryOpenHistoryFromClick(source);
+        }
+    }
+
+    /// <summary>点击起点向上命中：先碰到带规则标签 Tag 的配额行则打开历史；先到卡片边界则普通点击。</summary>
+    private void TryOpenHistoryFromClick(DependencyObject? source)
+    {
+        string? rule = null;
+        for (var d = source; d != null; d = VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent)
+        {
+            if (rule == null && d is FrameworkElement fe && fe.Tag is string label)
+            {
+                rule = label;
+                continue;
+            }
+            if (d is ServiceCard card && card.Tag is ServiceConfig svc)
+            {
+                if (rule != null) OnRequestHistory(svc, rule);
+                return;
+            }
         }
     }
 
@@ -717,20 +838,32 @@ public partial class MainWindow : Window
         var win = new SettingsWindow(_config, () => Engine) { Owner = this };
         if (win.ShowDialog() == true && win.ResultConfig != null)
         {
-            // 按指纹比对：只有新增或配置有变化的服务才重新抓取，
-            // 未变化的服务保留现有卡片数据和刷新计时
+            // 新旧服务先按稳定 id 匹配（无 id 的旧配置回退指纹）：
+            // 显示数据（含陈旧合成结果）随 id carry；刷新计时仅在配置未变时 carry，编辑过的服务立即刷新
+            var oldById = new Dictionary<string, ServiceConfig>();
             var oldByFingerprint = new Dictionary<string, ServiceConfig>();
-            foreach (var s in _config.Services) oldByFingerprint[ConfigStore.Fingerprint(s)] = s;
+            foreach (var s in _config.Services)
+            {
+                if (s.Id != null) oldById[s.Id] = s;
+                oldByFingerprint[ConfigStore.Fingerprint(s)] = s;
+            }
 
             var newConfig = win.ResultConfig;
             var carriedResults = new Dictionary<ServiceConfig, ServiceScrapeResult>();
             var carriedDue = new Dictionary<ServiceConfig, DateTime>();
             foreach (var s in newConfig.Services)
             {
-                if (!oldByFingerprint.TryGetValue(ConfigStore.Fingerprint(s), out var old)) continue;
+                ServiceConfig? old = s.Id != null && oldById.TryGetValue(s.Id, out var byId) ? byId
+                    : oldByFingerprint.TryGetValue(ConfigStore.Fingerprint(s), out var byFp) ? byFp
+                    : null;
+                if (old == null) continue;
                 if (_results.TryGetValue(old, out var r)) carriedResults[s] = r;
-                if (_nextDue.TryGetValue(old, out var d)) carriedDue[s] = d;
+                if (ConfigStore.Fingerprint(old) == ConfigStore.Fingerprint(s) && _nextDue.TryGetValue(old, out var d))
+                    carriedDue[s] = d;
             }
+
+            // carry 過來的結果 Service 仍指向舊配置實例：重掛到新實例，避免卡片按鈕/名稱短暫指到舊物件
+            foreach (var kv in carriedResults) kv.Value.Service = kv.Key;
 
             _config = newConfig;
             ConfigStore.Save(_config);

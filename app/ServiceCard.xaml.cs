@@ -217,8 +217,50 @@ public partial class ServiceCard : UserControl
             });
             return;
         }
+        if (result.StaleError != null || result.StaleFromDisk)
+            RowsPanel.Children.Add(BuildStaleWarning(result));
         foreach (var rule in result.Rules)
-            RowsPanel.Children.Add(BuildRow(rule, _theme, cfg));
+            RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg), rule.Label));
+    }
+
+    /// <summary>陈旧数据警告行：刷新失败显示「刷新失败——显示 HH:mm 的数据」（tooltip 完整错误）；
+    /// 启动恢复显示「上次会话数据」；怀疑未登录时附「去登录」按钮，不掩盖重新登录的行动。</summary>
+    private FrameworkElement BuildStaleWarning(ServiceScrapeResult result)
+    {
+        var t = result.Time.LocalDateTime;
+        string timeText = t.Date == DateTime.Today ? t.ToString("HH:mm") : t.ToString("MM-dd HH:mm");
+        var text = new TextBlock
+        {
+            Text = result.StaleError != null
+                ? I18n.T("stale_refresh_failed", timeText)
+                : I18n.T("stale_from_disk", timeText),
+            Foreground = new SolidColorBrush(WarnColor),
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            ToolTip = result.StaleError != null
+                ? I18n.T("stale_error_tip", result.StaleError)
+                : I18n.T("stale_disk_tip"),
+        };
+        if (!result.SuggestLogin) return text;
+        var login = new Button
+        {
+            Content = I18n.T("go_login"),
+            Style = (Style)FindResource("AccentButtonStyle"),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        login.Click += Login_Click;
+        return new StackPanel { Margin = new Thickness(0, 0, 0, 6), Children = { text, login } };
+    }
+
+    /// <summary>配额行可点击（点击判定在主窗口：DragMove 后无位移 = 点击）：
+    /// Tag 挂规则标签供主窗口命中，Hand 光标 + tooltip 作可见提示。进度条保留自己的 pace tooltip（子级优先）。</summary>
+    private FrameworkElement WireRowClick(FrameworkElement row, string ruleLabel)
+    {
+        row.Tag = ruleLabel;
+        row.Cursor = System.Windows.Input.Cursors.Hand;
+        row.ToolTip = I18n.T("row_history_tip");
+        return row;
     }
 
     private void SetHeader(ServiceConfig svc)

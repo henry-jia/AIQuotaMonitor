@@ -30,6 +30,8 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 - **Pause scraping**: title-bar ⏸ pauses globally (also in right-click/tray menu), per-card ⏸ pauses one service — paused services are **never contacted** (useful during risk-control-sensitive periods), while countdowns and the baseline tick keep updating locally every minute; resume triggers an immediate catch-up scrape
 - Right-click menu + system tray: refresh / pause / always-on-top / layout / language / settings / show-hide / exit; double-click tray icon to toggle
 - Error states: "sign in required" card with a **Sign in** button (opens an embedded browser to log in once, auto re-scrapes on close); scrape failures show the reason with full details in tooltip
+- **Stale-data fallback**: when a refresh fails (timeout, navigation failure, …) but a previous scrape succeeded, the card **keeps showing the previous data** with a small amber line "⚠ Refresh failed — showing data from HH:mm" (hover for the full error); after a restart it immediately shows the previous session's data with the same marker until the first successful refresh replaces it. "Sign in required" still gets its dedicated card, so a needed re-login is never hidden
+- **Usage history**: each successful refresh records one percentage sample per quota row (local-only `history.jsonl`, 30-day retention, >7-day samples decimated to hourly). **Click a quota row** to open the history window: 24h / 7d / 30d trend chart (reset sawtooth drawn as segments) + now / Δ-in-range / pace / **projection of % at reset based on the last-24h pace**. Recording can be turned off in global settings
 - Shared WebView2 user-data folder (`%LOCALAPPDATA%\AIQuotaMonitor\WebView2UserData`) — **one login per domain**; cookies (incl. session cookies) are exported after each scrape, DPAPI-encrypted, and restored on startup so logins survive restarts
 - **English / 中文 UI** (follows system by default, quick-switch via right-click menu)
 
@@ -119,6 +121,20 @@ During each scrape the app also scans the page text (incl. same-origin iframes a
 - **Auto-renew** from `自动续费 开启/未开启` text, implicit signals like `下次自动续费时间`, and the actual state of switch/checkbox controls
 - If the info lives on a **different page** (e.g. Zhipu's plan overview, Codex's Billing page), fill the service's **Subscription URL**; these are fetched on a 6-hour cache so refreshes don't open an extra page every time. Empty = scan the usage page itself, free.
 
+## Usage history & stale-data fallback
+
+Both files live in `%LOCALAPPDATA%\AIQuotaMonitor\`, stay on this machine, and are never uploaded:
+
+| File | Content |
+| --- | --- |
+| `lastgood.json` | Last successful scrape result per service (fallback source when a refresh fails or after a restart) |
+| `history.jsonl` | Usage-percentage time series, one JSON per line, e.g. `{"t":"2026-08-05T22:55:01+08:00","svc":"<id>","rule":"5-hour usage","pct":42,"detail":"2.1 / 5 hours","resetAt":"…"}` |
+
+- History is kept for **30 days**; samples older than 7 days are decimated to one per hour.
+- Clicking a quota row on a card opens the history window (24h / 7d / 30d). Stats: current value, Δ in range (accumulated since the last reset), recent pace (%/h), and a projection "≈ X% at reset" at the last-24h pace.
+- **Record usage history** can be turned off in global settings (turning off keeps existing data; delete the file to clear).
+- Known limitation: series are keyed by rule label — **renaming a label starts a new series**.
+
 ## Lessons learned (scrape engineering notes)
 
 Pitfalls hit while adapting five vendors — useful context when adding new services:
@@ -184,12 +200,13 @@ AIQuotaMonitor.exe --test-shot out.png                          # vertical
 AIQuotaMonitor.exe --test-shot out.png --layout horizontal      # horizontal
 AIQuotaMonitor.exe --test-shot out.png --lang en                # UI language (zh/en)
 AIQuotaMonitor.exe --test-settings-shot settings.png            # settings window (both tabs)
+AIQuotaMonitor.exe --test-history-shot out.png                  # usage history window (synthetic samples)
 AIQuotaMonitor.exe --test-frames frames_dir                     # frame series for demo GIFs
 ```
 
 ## Config storage
 
-`config.json` lives **next to the exe** (`System.Text.Json`, camelCase): services & rules, window position, always-on-top, opacity, layout, theme, language, refresh intervals, pause states. No hand-editing needed — dragging the window, toggling options, and reordering cards all save automatically.
+`config.json` lives **next to the exe** (`System.Text.Json`, camelCase): services & rules (each service carries a stable `id` used to correlate history), window position, always-on-top, opacity, layout, theme, language, refresh intervals, pause states. No hand-editing needed — dragging the window, toggling options, and reordering cards all save automatically.
 
 ## Project structure
 
@@ -211,12 +228,15 @@ app/
   SettingsWindow.xaml(.cs) settings UI (services/rules, presets, test scrape, global, themes)
   ColorPickerDialog.xaml(.cs) color picker (hex/RGB sliders + screen eyedropper)
   LoginWindow.xaml(.cs)   embedded-browser login window
+  HistoryStore.cs         usage-history samples history.jsonl (append / decimate / query)
+  LastGoodStore.cs        last successful results lastgood.json (stale fallback source)
+  HistoryWindow.xaml(.cs) usage history window (hand-drawn trend chart + stats)
   TestShot.cs             --test-shot / --test-settings-shot / --test-frames modes
 ```
 
 ## Disclaimer & compliance
 
-- This tool is for **checking your own accounts' usage**: it opens vendor pages with your local login, parses and displays locally, and never stores or uploads account data. Respect each vendor's terms of service; don't use it for bulk scraping, automation abuse, or anything against the target sites' rules.
+- This tool is for **checking your own accounts' usage**: it opens vendor pages with your local login, parses and displays locally, and never stores or uploads login credentials. For display continuity and the trend chart it additionally keeps the last successful scrape result and usage-percentage history on this machine (`lastgood.json` / `history.jsonl`, opt-out in settings, delete the files to clear); all data stays on this machine. Respect each vendor's terms of service; don't use it for bulk scraping, automation abuse, or anything against the target sites' rules.
 - Vendor names and trademarks belong to their owners; this project is not affiliated with or endorsed by them.
 - Third-party component licenses: .NET runtime (MIT, bundled self-contained), Microsoft.Web.WebView2 ([WebView2 Runtime license](https://learn.microsoft.com/microsoft-edge/webview2/), redistributable), System.Security.Cryptography.ProtectedData (MIT).
 - Released under the MIT License (see [LICENSE](LICENSE)), provided "as is", without warranty of any kind.

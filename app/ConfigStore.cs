@@ -66,6 +66,7 @@ public static class ConfigStore
         {
             new ServiceConfig
             {
+                Id = Guid.NewGuid().ToString("N"),
                 Name = "示例服务（设置中启用）",
                 Enabled = false,
                 Color = "#4F8CFF",

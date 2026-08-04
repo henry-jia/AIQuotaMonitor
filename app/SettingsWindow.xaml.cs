@@ -41,6 +41,7 @@ public partial class SettingsWindow : Window
         GlobalIntervalBox.Text = _working.RefreshIntervalMinutes.ToString();
         ShowRemainingCheck.IsChecked = _working.ShowRemainingTime;
         ShowPaceCheck.IsChecked = _working.ShowPaceBaseline;
+        RecordHistoryCheck.IsChecked = _working.RecordHistory;
         RemainingThresholdBox.Text = _working.RemainingThresholdDays.ToString();
         UnifiedFormatCheck.IsChecked = _working.UnifiedDateFormat;
         DateFormatCombo.Text = _working.DateFormat;
@@ -164,6 +165,8 @@ public partial class SettingsWindow : Window
         LblGlobalInterval.Text = I18n.T("global_interval");
         ShowRemainingCheck.Content = I18n.T("show_remaining");
         ShowPaceCheck.Content = I18n.T("show_pace");
+        RecordHistoryCheck.Content = I18n.T("record_history");
+        RecordHistoryCheck.ToolTip = I18n.T("tip_record_history");
         UnifiedFormatCheck.Content = I18n.T("unified_format");
         UnifiedFormatCheck.ToolTip = I18n.T("tip_unified_format");
         DateFormatCombo.ToolTip = I18n.T("tip_date_format");
@@ -190,6 +193,7 @@ public partial class SettingsWindow : Window
     {
         var svc = new ServiceConfig
         {
+            Id = Guid.NewGuid().ToString("N"),
             Name = I18n.T("new_service"),
             Rules = new ObservableCollection<QuotaRule> { new QuotaRule { Label = I18n.T("default_rule_label") } },
         };
@@ -460,6 +464,7 @@ public partial class SettingsWindow : Window
         _working.Opacity = OpacitySlider.Value;
         _working.ShowRemainingTime = ShowRemainingCheck.IsChecked == true;
         _working.ShowPaceBaseline = ShowPaceCheck.IsChecked == true;
+        _working.RecordHistory = RecordHistoryCheck.IsChecked == true;
         _working.Language = (LanguageCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? I18n.LangAuto;
         if (int.TryParse(RemainingThresholdBox.Text, out int threshold) && threshold >= 1)
             _working.RemainingThresholdDays = threshold;
