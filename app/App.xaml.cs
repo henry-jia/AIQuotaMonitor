@@ -63,10 +63,14 @@ public partial class App : Application
         if (historyShotIndex >= 0 && historyShotIndex + 1 < e.Args.Length)
         {
             string outPath = e.Args[historyShotIndex + 1];
+            // 可选第三参：选中的规则标签（截图 A/B 用）
+            string rule = historyShotIndex + 2 < e.Args.Length && !e.Args[historyShotIndex + 2].StartsWith("--")
+                ? e.Args[historyShotIndex + 2]
+                : "5 小时用量";
             I18n.Initialize(langArg ?? I18n.LangAuto);
             try
             {
-                TestShot.RunHistory(outPath);
+                TestShot.RunHistory(outPath, rule);
             }
             catch (Exception ex)
             {
@@ -105,6 +109,14 @@ public partial class App : Application
             {
                 svc.Id = Guid.NewGuid().ToString("N");
                 anyIdAssigned = true;
+            }
+            foreach (var rule in svc.Rules)
+            {
+                if (string.IsNullOrEmpty(rule.Id))
+                {
+                    rule.Id = Guid.NewGuid().ToString("N");
+                    anyIdAssigned = true;
+                }
             }
         }
         if (anyIdAssigned) ConfigStore.Save(config);

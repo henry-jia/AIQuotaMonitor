@@ -13,8 +13,10 @@ public class HistorySample
     public DateTimeOffset T { get; set; }
     /// <summary>服务稳定 id（ServiceConfig.Id）。</summary>
     public string Svc { get; set; } = "";
-    /// <summary>规则标签（序列以标签为 key；改标签会开始新序列）。</summary>
+    /// <summary>规则标签（显示名；序列关联优先用 RuleId）。</summary>
     public string Rule { get; set; } = "";
+    /// <summary>规则稳定 id（QuotaRule.Id）；旧样本可空，回退按标签关联。</summary>
+    public string? RuleId { get; set; }
     /// <summary>已用百分比 0–100（invert 规则为换算后的显示值）。</summary>
     public double Pct { get; set; }
     public string? Detail { get; set; }
@@ -153,7 +155,7 @@ public static class HistoryStore
             if (age > TimeSpan.FromDays(30)) continue;
             if (age > TimeSpan.FromDays(7))
             {
-                string bucket = $"{s.Svc}|{s.Rule}|{s.T.LocalDateTime:yyyyMMddHH}";
+                string bucket = $"{s.Svc}|{s.RuleId ?? s.Rule}|{s.T.LocalDateTime:yyyyMMddHH}";
                 if (!seen.Add(bucket)) continue;
             }
             result.Add(s);

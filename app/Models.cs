@@ -161,6 +161,11 @@ public class ServiceConfig : ObservableObject
 
 public class QuotaRule : ObservableObject
 {
+    /// <summary>稳定标识（GUID 字符串）：历史序列按此关联，改标签后历史不断。
+    /// 旧配置可空，启动时自动补齐并持久化。</summary>
+    private string? _id;
+    public string? Id { get => _id; set => Set(ref _id, value); }
+
     public const string TypePercent = "percent";
     public const string TypeFraction = "fraction";
     public const string DefaultPercentPattern = @"(\d+(?:\.\d+)?)\s*%";

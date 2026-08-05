@@ -19,9 +19,13 @@ public partial class HistoryWindow : Window
 
     private readonly AppConfig _cfg;
     private readonly ResolvedTheme _theme;
-    private readonly List<HistorySample> _samples;
-    private readonly List<string> _rules;
     private readonly string _svcName;
+    private readonly string? _svcId;
+    private List<HistorySample> _samples;
+    /// <summary>序列 key 列表（RuleId 优先，旧样本回退标签）。</summary>
+    private List<string> _rules = new();
+    /// <summary>key → 显示标签（取组内最新样本的标签，改标签后显示新名）。</summary>
+    private Dictionary<string, string> _ruleLabels = new();
     private string _selectedRule;
     private int _rangeHours = 24;
 
@@ -35,11 +39,11 @@ public partial class HistoryWindow : Window
         InitializeComponent();
         _cfg = cfg;
         _svcName = svc.Name;
+        _svcId = svc.Id;
         _theme = ColorTheme.Resolve(cfg);
         _samples = (samplesOverride ?? HistoryStore.Query(svc.Id!)).OrderBy(s => s.T).ToList();
-        _rules = _samples.Select(s => s.Rule).Distinct().ToList();
-        if (!_rules.Contains(ruleLabel)) _rules.Insert(0, ruleLabel);
-        _selectedRule = ruleLabel;
+        _selectedRule = MapKey(ruleLabel);
+        RebuildRules(ruleLabel);
 
         BuildRangeChips();
         BuildLegendChips();
@@ -48,11 +52,46 @@ public partial class HistoryWindow : Window
         Unloaded += (_, _) => I18n.Changed -= OnI18nChanged;
     }
 
+    /// <summary>序列 key：优先规则稳定 id，缺失（旧样本）回退标签——改标签后历史不断。</summary>
+    private static string SampleKey(HistorySample s) => s.RuleId ?? s.Rule;
+
+    /// <summary>当前标签 → 所属序列 key（取同标签最新样本的 key；无样本时 key=标签）。</summary>
+    private string MapKey(string label) =>
+        _samples.LastOrDefault(s => s.Rule == label) is { } m ? SampleKey(m) : label;
+
+    private void RebuildRules(string? ensureLabel)
+    {
+        _rules = _samples.Select(SampleKey).Distinct().ToList();
+        _ruleLabels = _rules.ToDictionary(k => k, k => _samples.Last(s => SampleKey(s) == k).Rule);
+        if (ensureLabel != null && !_rules.Contains(_selectedRule))
+        {
+            _rules.Insert(0, _selectedRule);
+            _ruleLabels[_selectedRule] = ensureLabel;
+        }
+    }
+
+    /// <summary>窗口重新激活时取最新样本（开着期间有新数据进来），序列集合变化时重建 legend。</summary>
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        if (_svcId == null) return;
+        var fresh = HistoryStore.Query(_svcId).OrderBy(s => s.T).ToList();
+        if (fresh.Count == _samples.Count && (fresh.Count == 0 || fresh[^1].T == _samples[^1].T)) return;
+        var keepSel = _selectedRule;
+        _samples = fresh;
+        RebuildRules(ensureLabel: null);
+        if (!_rules.Contains(keepSel) && _rules.Count > 0) keepSel = _rules[^1];
+        _selectedRule = keepSel;
+        BuildLegendChips();
+        Redraw();
+    }
+
     /// <summary>同服务窗口已打开时由主窗口调用：切到对应规则并重绘。</summary>
     public void FocusRule(string ruleLabel)
     {
-        if (!_rules.Contains(ruleLabel)) return;
-        _selectedRule = ruleLabel;
+        var key = MapKey(ruleLabel);
+        if (!_rules.Contains(key)) return;
+        _selectedRule = key;
         RefreshLegendChips();
         Redraw();
     }
@@ -112,6 +151,8 @@ public partial class HistoryWindow : Window
 
     private void BuildLegendChips()
     {
+        LegendPanel.Children.Clear();
+        _legendChips.Clear();
         foreach (var rule in _rules)
         {
             var swatch = new Rectangle
@@ -147,7 +188,7 @@ public partial class HistoryWindow : Window
     {
         foreach (var (rule, _, text, swatch) in _legendChips)
         {
-            text.Text = rule;
+            text.Text = _ruleLabels.TryGetValue(rule, out var lb) ? lb : rule;
             swatch.Fill = new SolidColorBrush(RuleColor(rule));
             text.Foreground = Ui.Brush(rule == _selectedRule ? "#EDEDF2" : "#8A8A95");
         }
@@ -223,7 +264,7 @@ public partial class HistoryWindow : Window
         foreach (var rule in _rules.OrderBy(r => r == _selectedRule ? 1 : 0))
         {
             bool selected = rule == _selectedRule;
-            var all = _samples.Where(s => s.Rule == rule && s.T <= now).ToList();
+            var all = _samples.Where(s => SampleKey(s) == rule && s.T <= now).ToList();
             var inRange = all.Where(s => s.T >= xMin).ToList();
             if (inRange.Count > 0) anyInRange = true;
             // 区间外最后一个点也带上，折线延伸到左缘
@@ -372,7 +413,7 @@ public partial class HistoryWindow : Window
 
     private void BuildStats(DateTimeOffset now, DateTimeOffset xMin)
     {
-        var inRange = _samples.Where(s => s.Rule == _selectedRule && s.T >= xMin && s.T <= now).ToList();
+        var inRange = _samples.Where(s => SampleKey(s) == _selectedRule && s.T >= xMin && s.T <= now).ToList();
         if (inRange.Count == 0) return;
         var last = inRange[^1];
 

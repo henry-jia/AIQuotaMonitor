@@ -525,6 +525,8 @@ public partial class MainWindow : Window
                 T = res.Time,
                 Svc = svc.Id,
                 Rule = r.Label,
+                // 结果模型无 id：按标签回查配置规则取稳定 id（标签此刻仍一致）
+                RuleId = svc.Rules.FirstOrDefault(rr => rr.Label == r.Label)?.Id,
                 Pct = r.Percent.Value,
                 Detail = r.Detail,
                 ResetAt = r.ResetAt,

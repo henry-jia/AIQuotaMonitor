@@ -255,7 +255,7 @@ public partial class SettingsWindow : Window
     private void AddRule_Click(object sender, RoutedEventArgs e)
     {
         if (ServiceList.SelectedItem is not ServiceConfig svc) return;
-        var rule = new QuotaRule { Label = I18n.T("new_rule") };
+        var rule = new QuotaRule { Id = Guid.NewGuid().ToString("N"), Label = I18n.T("new_rule") };
         svc.Rules.Add(rule);
         RuleList.SelectedItem = rule;
     }

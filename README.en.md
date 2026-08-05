@@ -133,7 +133,7 @@ Both files live in `%LOCALAPPDATA%\AIQuotaMonitor\`, stay on this machine, and a
 - History is kept for **30 days**; samples older than 7 days are decimated to one per hour.
 - Clicking a quota row on a card opens the history window (24h / 7d / 30d). Stats: current value, Δ in range (accumulated since the last reset), recent pace (%/h), and a projection "≈ X% at reset" at the last-24h pace.
 - **Record usage history** can be turned off in global settings (turning off keeps existing data; delete the file to clear).
-- Known limitation: series are keyed by rule label — **renaming a label starts a new series**.
+- Series are keyed by each rule's stable id, so **renaming a label keeps its history** (samples from before v1.3.0 fall back to label matching).
 
 ## Lessons learned (scrape engineering notes)
 

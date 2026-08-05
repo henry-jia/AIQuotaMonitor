@@ -40,7 +40,7 @@ public static class TestShot
     }
 
     /// <summary>历史窗口截图：合成锯齿样本（24h 内两次重置 + 7 天单调爬升），纯离屏渲染不碰真实历史文件。</summary>
-    public static void RunHistory(string outPath)
+    public static void RunHistory(string outPath, string ruleLabel = "5 小时用量")
     {
         var svc = new ServiceConfig { Id = "sample-a", Name = "星言 Pro", Url = "https://example.com/usage" };
         var config = new AppConfig { Services = new List<ServiceConfig> { svc } };
@@ -58,6 +58,7 @@ public static class TestShot
                 T = t,
                 Svc = svc.Id!,
                 Rule = "5 小时用量",
+                RuleId = "sample-r5",
                 Pct = pct,
                 Detail = $"{pct / 100 * 5:0.#} / 5 小时",
                 ResetAt = t.AddHours(5 - phase),
@@ -73,13 +74,14 @@ public static class TestShot
                 T = t,
                 Svc = svc.Id!,
                 Rule = "7 天用量",
+                RuleId = "sample-r7",
                 Pct = pct,
                 Detail = $"{pct / 100 * 7:0.#} / 7 天",
                 ResetAt = now.AddHours(3 * 24),
             });
         }
 
-        var window = new HistoryWindow(svc, "5 小时用量", config, samples);
+        var window = new HistoryWindow(svc, ruleLabel, config, samples);
         var content = (FrameworkElement)window.Content;
         Render(content, outPath, window.Width, window.Height);
     }

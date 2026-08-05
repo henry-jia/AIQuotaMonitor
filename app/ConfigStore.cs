@@ -73,9 +73,10 @@ public static class ConfigStore
                 Url = "https://example.com/usage",
                 Rules = new List<QuotaRule>
                 {
-                    new QuotaRule { Label = "5 小时用量", Type = QuotaRule.TypePercent },
+                    new QuotaRule { Id = Guid.NewGuid().ToString("N"), Label = "5 小时用量", Type = QuotaRule.TypePercent },
                     new QuotaRule
                     {
+                        Id = Guid.NewGuid().ToString("N"),
                         Label = "7 天用量",
                         Type = QuotaRule.TypeFraction,
                         Pattern = QuotaRule.DefaultFractionPattern,
