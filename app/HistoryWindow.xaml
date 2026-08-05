@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Usage history" Width="780" Height="540"
         Icon="app.ico" WindowStartupLocation="CenterOwner" Background="#1B1B22">
+    <!-- Mica 透出时的 tint 层（Win10 回退为窗口实色背景） -->
+    <Border Background="#E61B1B22" CornerRadius="8">
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -19,4 +21,5 @@
         </Border>
         <WrapPanel x:Name="StatsPanel" Grid.Row="2" Margin="2,10,0,0"/>
     </Grid>
+    </Border>
 </Window>

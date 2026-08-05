@@ -119,7 +119,10 @@ public partial class App : Application
                 }
             }
         }
-        if (anyIdAssigned) ConfigStore.Save(config);
+        // 旧默认背景 #E8 几乎不透，Acrylic 看不出毛玻璃；用旧默认的配置迁移到新 tint
+        bool tintMigrated = config.BackgroundColor == "#E814141B";
+        if (tintMigrated) config.BackgroundColor = "#9914141B";
+        if (anyIdAssigned || tintMigrated) ConfigStore.Save(config);
         I18n.Initialize(langArg ?? config.Language);
         var window = new MainWindow(config);
         window.Show();

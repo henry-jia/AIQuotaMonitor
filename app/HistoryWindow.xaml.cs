@@ -37,6 +37,7 @@ public partial class HistoryWindow : Window
         IReadOnlyList<HistorySample>? samplesOverride = null)
     {
         InitializeComponent();
+        Backdrop.Apply(this, Backdrop.Kind.Mica);
         _cfg = cfg;
         _svcName = svc.Name;
         _svcId = svc.Id;

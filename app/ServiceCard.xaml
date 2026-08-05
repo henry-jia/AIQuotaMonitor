@@ -1,16 +1,18 @@
 <UserControl x:Class="AIQuotaMonitor.ServiceCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Border x:Name="CardRoot" CornerRadius="10" Background="#0DFFFFFF" Padding="14,12" SnapsToDevicePixels="True">
+    <Border x:Name="CardRoot" CornerRadius="8" Background="#0DFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1" Padding="14,12" SnapsToDevicePixels="True">
         <Grid>
             <StackPanel>
             <DockPanel x:Name="HeaderPanel"
                        PreviewMouseLeftButtonDown="Header_PreviewMouseDown"
                        MouseMove="Header_MouseMove">
-                <Button x:Name="CardRefreshButton" DockPanel.Dock="Right" Content="⟳"
+                <Button x:Name="CardRefreshButton" DockPanel.Dock="Right" Content="&#xE72C;" Width="26" Height="26"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                         Style="{StaticResource IconButtonStyle}" ToolTip="Refresh this service"
                         Click="CardRefresh_Click"/>
-                <Button x:Name="CardPauseButton" DockPanel.Dock="Right" Content="⏸"
+                <Button x:Name="CardPauseButton" DockPanel.Dock="Right" Content="&#xE769;" Width="26" Height="26"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                         Style="{StaticResource IconButtonStyle}" ToolTip="Pause scraping"
                         Click="CardPause_Click"/>
                 <StackPanel Orientation="Horizontal">

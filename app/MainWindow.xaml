@@ -2,10 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AIQuotaMonitor"
-        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        WindowStyle="None" Background="#14141B"
         SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False">
-    <Border x:Name="Root" CornerRadius="14" Background="#E814141B"
-            BorderBrush="#22FFFFFF" BorderThickness="1"
+    <!-- Win11 上运行时切换为 Acrylic 毛玻璃（见 Backdrop.cs）；圆角与 DWM 的 8px 对齐 -->
+    <Border x:Name="Root" CornerRadius="8" Background="#9914141B"
+            BorderBrush="#26FFFFFF" BorderThickness="1"
             MouseLeftButtonDown="Root_MouseLeftButtonDown"
             MouseWheel="Root_MouseWheel">
         <Border.ContextMenu>
@@ -28,19 +30,28 @@
         </Border.ContextMenu>
         <StackPanel Margin="16,12,16,14">
             <Grid Margin="0,0,0,2">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="11"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <!-- 左側可壓縮：窄窗口時标题省略号，避免与右侧按钮重叠 -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="10.5"
                                Margin="8,0,0,0" Visibility="Collapsed"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="ZoomResetButton" Style="{StaticResource IconButtonStyle}" Content="100%"
-                            FontSize="10.5" ToolTip="UI zoom" Margin="4,0,0,0" Click="ZoomReset_Click"/>
-                    <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="⏸" ToolTip="Pause scraping"
+                            Width="Auto" Padding="7,0" FontSize="10.5" ToolTip="UI zoom" Margin="4,0,0,0" Click="ZoomReset_Click"/>
+                    <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="&#xE769;"
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Pause scraping"
                             Margin="4,0,0,0" Click="PauseButton_Click"/>
-                    <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="⟳" ToolTip="Refresh now"
+                    <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;"
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Refresh now"
                             Margin="4,0,0,0" Click="RefreshButton_Click"/>
-                    <Button x:Name="HideButton" Style="{StaticResource IconButtonStyle}" Content="✕" ToolTip="Hide window (tray icon stays)"
+                    <Button x:Name="HideButton" Style="{StaticResource IconButtonStyle}" Content="&#xE8BB;"
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Hide window (tray icon stays)"
                             Margin="4,0,0,0" Click="HideButton_Click"/>
                 </StackPanel>
             </Grid>

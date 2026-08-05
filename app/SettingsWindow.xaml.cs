@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow(AppConfig config, Func<ScrapeEngine> engineFactory)
     {
         InitializeComponent();
+        Backdrop.Apply(this, Backdrop.Kind.Mica);
         _engineFactory = engineFactory;
 
         // 深拷贝副本；换成 ObservableCollection 以便列表增删即时刷新
@@ -435,7 +436,7 @@ public partial class SettingsWindow : Window
     private void BgSwatch_Click(object sender, RoutedEventArgs e)
     {
         var current = Ui.ParseColor(_working.BackgroundColor,
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E814141B"));
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#9914141B"));
         var dlg = new ColorPickerDialog(current) { Owner = this };
         if (dlg.ShowDialog() != true || dlg.SelectedColor is not { } picked) return;
         _working.BackgroundColor = ColorTheme.Hex(picked);
@@ -445,7 +446,7 @@ public partial class SettingsWindow : Window
     private void RefreshBgSwatch()
     {
         var c = Ui.ParseColor(_working.BackgroundColor,
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E814141B"));
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#9914141B"));
         BgSwatch.Background = new System.Windows.Media.SolidColorBrush(c);
         BgHexText.Text = _working.BackgroundColor;
     }

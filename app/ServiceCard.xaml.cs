@@ -54,7 +54,7 @@ public partial class ServiceCard : UserControl
         _paused = paused;
         CardRoot.Opacity = paused ? 0.55 : 1.0;
         PausedBadge.Visibility = paused ? Visibility.Visible : Visibility.Collapsed;
-        CardPauseButton.Content = paused ? "▶" : "⏸";
+        CardPauseButton.Content = paused ? "\uE768" : "\uE769";
         CardPauseButton.ToolTip = I18n.T(paused ? "resume_this_service" : "pause_this_service");
         UpdateButtons();
     }
@@ -231,9 +231,6 @@ public partial class ServiceCard : UserControl
         string timeText = t.Date == DateTime.Today ? t.ToString("HH:mm") : t.ToString("MM-dd HH:mm");
         var text = new TextBlock
         {
-            Text = result.StaleError != null
-                ? I18n.T("stale_refresh_failed", timeText)
-                : I18n.T("stale_from_disk", timeText),
             Foreground = new SolidColorBrush(WarnColor),
             FontSize = 10.5,
             TextWrapping = TextWrapping.Wrap,
@@ -241,6 +238,11 @@ public partial class ServiceCard : UserControl
                 ? I18n.T("stale_error_tip", result.StaleError)
                 : I18n.T("stale_disk_tip"),
         };
+        // Fluent 警告图标（Segoe Fluent Icons Warning），与正文分 Run 混排
+        text.Inlines.Add(new System.Windows.Documents.Run("\uE7BA ") { FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") });
+        text.Inlines.Add(new System.Windows.Documents.Run(result.StaleError != null
+            ? I18n.T("stale_refresh_failed", timeText)
+            : I18n.T("stale_from_disk", timeText)));
         if (!result.SuggestLogin) return text;
         var login = new Button
         {

@@ -96,8 +96,8 @@ public static class I18n
         ["raw_text_header"] = "原始文本：",
 
         // ---------- 陈旧数据回退 / 用量历史 ----------
-        ["stale_refresh_failed"] = "⚠ 刷新失败，当前显示 {0} 的数据",
-        ["stale_from_disk"] = "⚠ 上次会话数据（{0}），首次成功刷新后自动更新",
+        ["stale_refresh_failed"] = "刷新失败，当前显示 {0} 的数据",
+        ["stale_from_disk"] = "上次会话数据（{0}），首次成功刷新后自动更新",
         ["stale_error_tip"] = "本次刷新失败详情：\n{0}",
         ["stale_disk_tip"] = "启动时从本机恢复了上次成功的结果；首次成功刷新后自动替换。",
         ["row_history_tip"] = "点击查看用量历史趋势",
@@ -315,8 +315,8 @@ public static class I18n
         ["raw_text_header"] = "Raw text:",
 
         // ---------- Stale-data fallback / usage history ----------
-        ["stale_refresh_failed"] = "⚠ Refresh failed — showing data from {0}",
-        ["stale_from_disk"] = "⚠ Data from previous session ({0}); updates after the first successful refresh",
+        ["stale_refresh_failed"] = "Refresh failed — showing data from {0}",
+        ["stale_from_disk"] = "Data from previous session ({0}); updates after the first successful refresh",
         ["stale_error_tip"] = "Latest refresh failure details:\n{0}",
         ["stale_disk_tip"] = "The last successful result was restored from this machine at startup; replaced after the first successful refresh.",
         ["row_history_tip"] = "Click to view the usage history trend",

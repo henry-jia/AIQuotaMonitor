@@ -107,6 +107,12 @@ public static class TestShot
             (int)Math.Ceiling(size.Width * scale),
             (int)Math.Ceiling(size.Height * scale),
             96 * scale, 96 * scale, PixelFormats.Pbgra32);
+        // 先铺深色底再渲染内容：模拟运行时 Acrylic/Mica 之上的合成效果，避免 PNG 透明通道在看图器里发灰
+        var baseLayer = new DrawingVisual();
+        using (var dc = baseLayer.RenderOpen())
+            dc.DrawRectangle(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#20202A")),
+                null, new Rect(0, 0, size.Width, size.Height));
+        bmp.Render(baseLayer);
         bmp.Render(content);
 
         var encoder = new PngBitmapEncoder();

@@ -450,6 +450,8 @@
 
     </Window.Resources>
 
+    <!-- Mica 透出时的 tint 层（Win10 回退为窗口实色背景） -->
+    <Border Background="#E61B1B22" CornerRadius="8">
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -745,4 +747,5 @@
             <Button x:Name="BtnCancel" Content="Cancel" Width="90" Margin="8,0,0,0" IsCancel="True" Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>

@@ -25,6 +25,7 @@ public partial class ColorPickerDialog : Window
     public ColorPickerDialog(Color initial)
     {
         InitializeComponent();
+        Backdrop.Apply(this, Backdrop.Kind.Mica);
         Closed += (_, _) => _closed = true;
         Title = I18n.T("color_picker_title");
         BtnScreenPick.Content = I18n.T("screen_pick");

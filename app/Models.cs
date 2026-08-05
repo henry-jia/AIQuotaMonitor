@@ -60,8 +60,8 @@ public class AppConfig : ObservableObject
     private bool _scrapingPaused;
     public bool ScrapingPaused { get => _scrapingPaused; set => Set(ref _scrapingPaused, value); }
 
-    /// <summary>小部件背景色（hex，默认深色）。</summary>
-    private string _backgroundColor = "#E814141B";
+    /// <summary>小部件背景色（hex，默认深色；Acrylic 下作为 tint，alpha 决定毛玻璃透出程度）。</summary>
+    private string _backgroundColor = "#9914141B";
     public string BackgroundColor { get => _backgroundColor; set => Set(ref _backgroundColor, value); }
 
     /// <summary>界面缩放倍数（滚轮调整，1.0 = 100%）。</summary>

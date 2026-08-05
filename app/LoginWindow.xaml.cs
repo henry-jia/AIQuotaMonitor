@@ -17,6 +17,7 @@ public partial class LoginWindow : Window
     public LoginWindow(CoreWebView2Environment env, string url, string serviceName, bool viewOnly = false)
     {
         InitializeComponent();
+        Backdrop.Apply(this, Backdrop.Kind.None); // 深色标题栏 + 圆角即可，WebView 内容区不透明
         Title = I18n.T(viewOnly ? "view_window_title" : "login_window_title", serviceName);
         _env = env;
         _url = url;

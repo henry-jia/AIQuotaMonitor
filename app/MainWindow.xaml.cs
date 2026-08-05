@@ -51,6 +51,7 @@ public partial class MainWindow : Window
         _config = config;
         _testMode = testMode;
         InitializeComponent();
+        Backdrop.Apply(this, Backdrop.Kind.Acrylic, hideBorder: true);
         I18n.Changed += OnI18nChanged;
         // 按住 Ctrl 时卡片服务名变链接样式（Ctrl+点击打开官方用量页面）
         PreviewKeyDown += (s, e) => UpdateCtrlHint();
@@ -92,7 +93,7 @@ public partial class MainWindow : Window
     {
         Topmost = _config.Topmost;
         Root.Background = new SolidColorBrush(Ui.ParseColor(_config.BackgroundColor,
-            (Color)ColorConverter.ConvertFromString("#E814141B")));
+            (Color)ColorConverter.ConvertFromString("#9914141B")));
         Root.Opacity = _config.Opacity;
         ApplyScale();
         MenuTopmost.IsChecked = _config.Topmost;
@@ -450,7 +451,7 @@ public partial class MainWindow : Window
     private void UpdatePauseVisuals()
     {
         bool paused = _config.ScrapingPaused;
-        PauseButton.Content = paused ? "▶" : "⏸";
+        PauseButton.Content = paused ? "\uE768" : "\uE769";
         PauseButton.ToolTip = I18n.T(paused ? "resume_scraping" : "pause_scraping");
         MenuPause.IsChecked = paused;
         if (_trayPauseItem != null) _trayPauseItem.Checked = paused;
