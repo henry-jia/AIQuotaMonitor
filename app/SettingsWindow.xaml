@@ -716,6 +716,10 @@
                                 <TextBlock x:Name="LblGlobalInterval" Text="Global refresh interval (min)" Width="150" Style="{StaticResource FieldLabel}"/>
                                 <TextBox x:Name="GlobalIntervalBox" Width="64"/>
                             </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="LblScrapeTimeout" Text="Page load timeout (sec)" Width="150" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="ScrapeTimeoutBox" Width="64"/>
+                            </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <CheckBox x:Name="ShowRemainingCheck" VerticalAlignment="Center"
                                           Content="Show time until reset; threshold (days):"/>

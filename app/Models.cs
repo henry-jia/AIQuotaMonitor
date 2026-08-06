@@ -84,6 +84,10 @@ public class AppConfig : ObservableObject
     private bool _recordHistory = true;
     public bool RecordHistory { get => _recordHistory; set => Set(ref _recordHistory, value); }
 
+    /// <summary>页面加载超时上限（秒）；渲染慢的页面可调大。失败时卡片仍回退显示上次成功数据。</summary>
+    private int _scrapeTimeoutSeconds = 30;
+    public int ScrapeTimeoutSeconds { get => _scrapeTimeoutSeconds; set => Set(ref _scrapeTimeoutSeconds, Math.Clamp(value, 10, 300)); }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsHorizontal => Layout == "horizontal";
 }
@@ -138,9 +142,9 @@ public class ServiceConfig : ObservableObject
     private bool _paused;
     public bool Paused { get => _paused; set => Set(ref _paused, value); }
 
-    /// <summary>页面加载完成后的额外等待秒数（SPA 异步渲染）。</summary>
+    /// <summary>页面加载完成后的额外等待秒数（SPA 异步渲染）。上限 120s，避免极端值长时间占用抓取锁。</summary>
     private double _extraWaitSeconds = 2;
-    public double ExtraWaitSeconds { get => _extraWaitSeconds; set => Set(ref _extraWaitSeconds, value); }
+    public double ExtraWaitSeconds { get => _extraWaitSeconds; set => Set(ref _extraWaitSeconds, Math.Clamp(value, 0, 120)); }
 
     /// <summary>可选：页面上命中该选择器即判定为未登录。</summary>
     private string? _loginIndicatorSelector;

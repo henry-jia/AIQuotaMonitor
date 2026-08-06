@@ -36,10 +36,15 @@ public static class Backdrop
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref uint value, int size);
 
-    /// <summary>在 SourceInitialized 挂钩应用（hwnd 就绪时）。</summary>
+    /// <summary>在 SourceInitialized 挂钩应用（hwnd 就绪时）；自移除避免重复调用叠加回调。</summary>
     public static void Apply(Window window, Kind kind, bool hideBorder = false)
     {
-        window.SourceInitialized += (s, e) => ApplyNow(window, kind, hideBorder);
+        void OnSourceInitialized(object? s, EventArgs e)
+        {
+            window.SourceInitialized -= OnSourceInitialized;
+            ApplyNow(window, kind, hideBorder);
+        }
+        window.SourceInitialized += OnSourceInitialized;
     }
 
     private static void ApplyNow(Window window, Kind kind, bool hideBorder)

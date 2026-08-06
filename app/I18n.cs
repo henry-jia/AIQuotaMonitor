@@ -127,7 +127,9 @@ public static class I18n
 
         // ---------- 抓取引擎 ----------
         ["webview2_missing"] = "未检测到 WebView2 Runtime。\n\n请从微软官网下载安装「WebView2 Runtime 长青版（Evergreen）」：\nhttps://developer.microsoft.com/zh-cn/microsoft-edge/webview2/\n\n安装完成后重启本程序即可。",
-        ["page_load_timeout"] = "页面加载超时（30 秒）",
+        ["page_load_timeout"] = "页面加载超时（{0} 秒）",
+        ["scrape_timeout"] = "页面加载超时（秒）",
+        ["tip_scrape_timeout"] = "导航/加载等待上限（10–300 秒）；渲染慢的页面可调大。失败时卡片仍回退显示上次成功数据",
         ["nav_failed_detail"] = "页面导航失败（当前地址：{0}，标题：{1}）。请检查网址是否可访问，或是否被重定向到了登录/验证页",
         ["nav_failed"] = "页面导航失败，请检查网址是否可访问",
         ["all_rules_failed"] = "所有规则都未取到数值：可能未登录，或页面结构已变化。",
@@ -346,7 +348,9 @@ public static class I18n
 
         // ---------- Scrape engine ----------
         ["webview2_missing"] = "WebView2 Runtime not found.\n\nPlease install the WebView2 Runtime (Evergreen) from Microsoft:\nhttps://developer.microsoft.com/en-us/microsoft-edge/webview2/\n\nRestart this app after installation.",
-        ["page_load_timeout"] = "Page load timed out (30s)",
+        ["page_load_timeout"] = "Page load timed out ({0}s)",
+        ["scrape_timeout"] = "Page load timeout (sec)",
+        ["tip_scrape_timeout"] = "Cap for navigation/load waiting (10–300s); raise it for slow-rendering pages. On failure the card still falls back to the last good data",
         ["nav_failed_detail"] = "Navigation failed (current URL: {0}, title: {1}). Check the URL is reachable, or whether you were redirected to a login/verification page",
         ["nav_failed"] = "Navigation failed. Check the URL is reachable",
         ["all_rules_failed"] = "No rule produced a value: you may be signed out, or the page structure has changed.",

@@ -36,6 +36,8 @@ public static class CookieStore
             var list = new List<SavedCookie>(cookies.Count);
             foreach (var c in cookies)
             {
+                // 跳过已过期 Cookie，避免 cookies.dat 随时间无限增长
+                if (!c.IsSession && c.Expires <= DateTimeOffset.Now) continue;
                 list.Add(new SavedCookie(
                     c.Name, c.Value, c.Domain, c.Path, c.Expires,
                     c.IsHttpOnly, c.IsSecure, c.SameSite, c.IsSession));

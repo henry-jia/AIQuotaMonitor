@@ -89,7 +89,8 @@ public sealed class ScrapeEngine
 
     /// <summary>抓取单个服务，单个服务失败不影响其他服务。
     /// fetchSubscription=false 时跳过订阅信息扫描（主窗口按缓存时效决定）。</summary>
-    public async Task<ServiceScrapeResult> ScrapeAsync(ServiceConfig service, bool fetchSubscription = true, CancellationToken ct = default)
+    public async Task<ServiceScrapeResult> ScrapeAsync(ServiceConfig service, bool fetchSubscription = true,
+        int timeoutSeconds = 30, CancellationToken ct = default)
     {
         var result = new ServiceScrapeResult { Service = service, Time = DateTimeOffset.Now };
         await _scrapeLock.WaitAsync(ct);
@@ -99,7 +100,7 @@ public sealed class ScrapeEngine
             var wv = _webView!.CoreWebView2!;
 
             // 1) 导航并等待完成（导航报错时检查页面实况，重定向链误报则继续）
-            await NavigateAsync(wv, service.Url, ct);
+            await NavigateAsync(wv, service.Url, timeoutSeconds, ct);
 
             // 2) 等待内容渲染：轮询任一定位文本出现即提前结束，「额外等待秒数」为超时上限
             await WaitForContentAsync(wv, service, ct);
@@ -122,13 +123,14 @@ public sealed class ScrapeEngine
             // 4b) 全部抓不到：内容可能在跨域 iframe 里（同源策略导致 JS 读不到，
             //     登录窗口里能看到是因为渲染不受限）。把隐藏浏览器直接导航到
             //     读不到的 iframe 地址再抓一遍，任一 iframe 出数即采用
+            bool navigatedIntoFrame = false;
             if (result.Rules.Count > 0 && result.Rules.TrueForAll(r => r.Percent == null))
             {
                 foreach (var src in await GetUnreadableFrameSrcsAsync(wv))
                 {
                     try
                     {
-                        await NavigateAsync(wv, src, ct);
+                        await NavigateAsync(wv, src, timeoutSeconds, ct);
                         await WaitForContentAsync(wv, service, ct);
                         var retry = new List<RuleResult>();
                         foreach (var rule in service.Rules)
@@ -136,6 +138,7 @@ public sealed class ScrapeEngine
                         if (retry.Any(r => r.Percent != null))
                         {
                             result.Rules = retry;
+                            navigatedIntoFrame = true;
                             break;
                         }
                     }
@@ -166,7 +169,7 @@ public sealed class ScrapeEngine
                     pageText = doc.RootElement.GetProperty("text").GetString();
                     pwdCount = doc.RootElement.GetProperty("pwd").GetInt32();
                 }
-                catch { /* 实况获取失败时按「可能未登录」保守处理 */ }
+                catch (JsonException) { /* JSON 损坏按「可能未登录」保守处理；其他异常（如 WebView 崩溃）外抛暴露真实原因 */ }
 
                 // 登录态推断：配置了登录指示选择器且走到这里 = 指示未命中 = 已登录；
                 // 页面有密码框，或短页面带登录关键词 → 大概率未登录；页面空白无法判断时保守归为未登录
@@ -204,11 +207,23 @@ public sealed class ScrapeEngine
             //    SubscriptionUrl 为空时在用量页面上扫（零额外导航）；否则导航到订阅页
             if (result.Status == ScrapeStatus.Ok && fetchSubscription)
             {
+                // 4b 若已导航进跨域 iframe，「顺带扫」前须回到原用量页，否则订阅扫描会扫到 iframe 页面
+                if (navigatedIntoFrame && string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                {
+                    try
+                    {
+                        await NavigateAsync(wv, service.Url, timeoutSeconds, ct);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // 回不去就在当前页 best-effort 扫一次
+                    }
+                }
                 if (!string.IsNullOrWhiteSpace(service.SubscriptionUrl))
                 {
                     try
                     {
-                        await NavigateAsync(wv, service.SubscriptionUrl!, ct);
+                        await NavigateAsync(wv, service.SubscriptionUrl!, timeoutSeconds, ct);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -236,17 +251,21 @@ public sealed class ScrapeEngine
     }
 
     /// <summary>导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。</summary>
-    private async Task NavigateAsync(CoreWebView2 wv, string url, CancellationToken ct)
+    private async Task NavigateAsync(CoreWebView2 wv, string url, int timeoutSeconds, CancellationToken ct)
     {
         var navDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnNav(object? s, CoreWebView2NavigationCompletedEventArgs e) => navDone.TrySetResult(e.IsSuccess);
         wv.NavigationCompleted += OnNav;
+        // 取消时中止进行中的导航，避免 WebView 在后台继续加载、下次导航落在不确定状态
+        using var stopOnCancel = ct.Register(() => { try { wv.Stop(); } catch { /* WebView 已 dispose 等 */ } });
         try
         {
             wv.Navigate(url);
-            var timeout = Task.Delay(TimeSpan.FromSeconds(30), ct);
+            using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var timeout = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), delayCts.Token);
             if (await Task.WhenAny(navDone.Task, timeout) != navDone.Task)
-                throw new ScrapeException(I18n.T("page_load_timeout"));
+                throw new ScrapeException(I18n.T("page_load_timeout", timeoutSeconds));
+            delayCts.Cancel(); // 导航已完成，释放悬空计时器
             if (navDone.Task.Result) return;
 
             await Task.Delay(TimeSpan.FromMilliseconds(1500), ct);

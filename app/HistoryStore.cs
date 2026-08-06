@@ -123,7 +123,8 @@ public static class HistoryStore
         if (toRewrite != null)
         {
             var list = toRewrite;
-            System.Threading.Tasks.Task.Run(() => { lock (Gate) Rewrite(list); });
+            System.Threading.Tasks.Task.Run(() => { lock (Gate) Rewrite(list); })
+                .ContinueWith(t => { _ = t.Exception; }, System.Threading.Tasks.TaskContinuationOptions.OnlyOnFaulted);
         }
     }
 

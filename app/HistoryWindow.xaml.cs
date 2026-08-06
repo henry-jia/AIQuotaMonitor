@@ -134,6 +134,8 @@ public partial class HistoryWindow : Window
                 RefreshRangeChips();
                 Redraw();
             };
+            chip.MouseEnter += (s, e) => { if (hours != _rangeHours) chip.Background = Ui.Brush("#1AFFFFFF"); };
+            chip.MouseLeave += (s, e) => RefreshRangeChips();
             RangePanel.Children.Add(chip);
             _rangeChips.Add((hours, chip, text));
         }
@@ -171,6 +173,8 @@ public partial class HistoryWindow : Window
                 Margin = new Thickness(0, 0, 14, 0),
                 Cursor = Cursors.Hand,
             };
+            chip.MouseEnter += (s, e) => chip.Background = Ui.Brush("#14FFFFFF");
+            chip.MouseLeave += (s, e) => chip.Background = null;
             chip.Children.Add(swatch);
             chip.Children.Add(text);
             chip.MouseLeftButtonUp += (s, e) =>

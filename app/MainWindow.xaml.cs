@@ -362,7 +362,7 @@ public partial class MainWindow : Window
                 ServiceScrapeResult res;
                 try
                 {
-                    res = await Engine.ScrapeAsync(svc, fetchSub);
+                    res = await Engine.ScrapeAsync(svc, fetchSub, timeoutSeconds: _config.ScrapeTimeoutSeconds);
                 }
                 catch (Exception ex)
                 {

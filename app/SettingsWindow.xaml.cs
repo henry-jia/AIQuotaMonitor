@@ -40,6 +40,7 @@ public partial class SettingsWindow : Window
         OpacitySlider.Value = _working.Opacity;
         OpacityLabel.Text = _working.Opacity.ToString("P0");
         GlobalIntervalBox.Text = _working.RefreshIntervalMinutes.ToString();
+        ScrapeTimeoutBox.Text = _working.ScrapeTimeoutSeconds.ToString();
         ShowRemainingCheck.IsChecked = _working.ShowRemainingTime;
         ShowPaceCheck.IsChecked = _working.ShowPaceBaseline;
         RecordHistoryCheck.IsChecked = _working.RecordHistory;
@@ -164,6 +165,9 @@ public partial class SettingsWindow : Window
         LblOpacity.Text = I18n.T("opacity");
         LblBackground.Text = I18n.T("background_color");
         LblGlobalInterval.Text = I18n.T("global_interval");
+        LblScrapeTimeout.Text = I18n.T("scrape_timeout");
+        LblScrapeTimeout.ToolTip = I18n.T("tip_scrape_timeout");
+        ScrapeTimeoutBox.ToolTip = I18n.T("tip_scrape_timeout");
         ShowRemainingCheck.Content = I18n.T("show_remaining");
         ShowPaceCheck.Content = I18n.T("show_pace");
         RecordHistoryCheck.Content = I18n.T("record_history");
@@ -313,7 +317,7 @@ public partial class SettingsWindow : Window
         try
         {
             var snapshot = ConfigStore.Clone(svc);
-            var res = await _engineFactory().ScrapeAsync(snapshot);
+            var res = await _engineFactory().ScrapeAsync(snapshot, timeoutSeconds: _working.ScrapeTimeoutSeconds);
             TestOutput.Text = FormatResult(res);
         }
         catch (Exception ex)
@@ -460,6 +464,7 @@ public partial class SettingsWindow : Window
             return;
         }
         _working.RefreshIntervalMinutes = mins;
+        if (int.TryParse(ScrapeTimeoutBox.Text, out int secs)) _working.ScrapeTimeoutSeconds = secs; // 属性内 clamp 10–300
         _working.Layout = LayoutHorizontal.IsChecked == true ? "horizontal" : "vertical";
         _working.Topmost = TopmostCheck.IsChecked == true;
         _working.Opacity = OpacitySlider.Value;
