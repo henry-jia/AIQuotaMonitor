@@ -28,6 +28,28 @@ public static class Ui
         return b;
     }
 
+    /// <summary>开机自启：HKCU Run 键。启用时写当前 exe 路径（移动目录后启动会自愈），停用移除。</summary>
+    public static class AutoStart
+    {
+        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        private const string Name = "AIQuotaMonitor";
+
+        public static void Sync(bool enabled)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey, true);
+                if (key == null) return;
+                if (enabled) key.SetValue(Name, Environment.ProcessPath ?? "");
+                else key.DeleteValue(Name, false);
+            }
+            catch
+            {
+                // 注册表不可写等场景尽力而为
+            }
+        }
+    }
+
     /// <summary>命中源是否在按钮上（拖动/点击判定共用，避免各处复制视觉树遍历）。</summary>
     public static bool IsOnButton(System.Windows.DependencyObject? d)
     {

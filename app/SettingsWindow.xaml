@@ -730,6 +730,13 @@
                             <CheckBox x:Name="RecordHistoryCheck" Margin="0,8,0,0"
                                       Content="Record usage history (stored locally only)"/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <CheckBox x:Name="NotifyQuotaCheck" VerticalAlignment="Center"
+                                          Content="Balloon when any quota reaches"/>
+                                <TextBox x:Name="NotifyQuotaBox" Width="44" VerticalAlignment="Center" Margin="6,0,6,0"/>
+                                <TextBlock Text="%" VerticalAlignment="Center" Foreground="#8A8A95"/>
+                            </StackPanel>
+                            <CheckBox x:Name="AutoStartCheck" Content="Launch at Windows startup" Margin="0,8,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <CheckBox x:Name="UnifiedFormatCheck" Content="Unify reset time format" VerticalAlignment="Center"
                                           ToolTip="Show all reset dates in the format on the right"/>
                                 <ComboBox x:Name="DateFormatCombo" Width="170" Margin="10,0,0,0" IsEditable="True"

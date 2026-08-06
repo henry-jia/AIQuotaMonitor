@@ -12,6 +12,9 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Margin="0,0,0,10">
+            <Button x:Name="ExportButton" DockPanel.Dock="Right" Content="&#xE74E;"
+                    FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                    Style="{StaticResource IconButtonStyle}" Margin="8,0,0,0" Click="Export_Click"/>
             <StackPanel x:Name="RangePanel" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"/>
             <TextBlock x:Name="TitleText" FontSize="14" FontWeight="SemiBold" Foreground="#EDEDF2" VerticalAlignment="Center"/>
             <StackPanel x:Name="LegendPanel" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"/>

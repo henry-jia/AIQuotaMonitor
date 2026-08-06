@@ -110,10 +110,48 @@ public partial class HistoryWindow : Window
         string title = I18n.T("history_title", _svcName);
         Title = title;
         TitleText.Text = title;
+        ExportButton.ToolTip = I18n.T("export_history");
         string[] keys = { "history_range_24h", "history_range_7d", "history_range_30d" };
         for (int i = 0; i < _rangeChips.Count; i++)
             _rangeChips[i].Text.Text = I18n.T(keys[i]);
     }
+
+    /// <summary>当前服务全部历史导出 CSV（UTF-8 BOM，Excel 直接打开不乱码）。</summary>
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = "AIQuotaMonitor-history.csv",
+            Filter = I18n.T("export_filter"),
+        };
+        if (dlg.ShowDialog() != true) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("time,service,rule,percent,detail");
+        foreach (var s in _samples)
+        {
+            string label = _ruleLabels.TryGetValue(SampleKey(s), out var lb) ? lb : s.Rule;
+            sb.AppendLine(string.Join(",",
+                s.T.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                Csv(_svcName), Csv(label),
+                s.Pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+                Csv(s.Detail)));
+        }
+        try
+        {
+            System.IO.File.WriteAllText(dlg.FileName, sb.ToString(), new System.Text.UTF8Encoding(true));
+            System.Windows.MessageBox.Show(this, I18n.T("export_done", dlg.FileName), I18n.T("history_title", _svcName),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, I18n.T("export_failed", ex.Message), I18n.T("history_title", _svcName),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private static string Csv(string? v) =>
+        string.IsNullOrEmpty(v) ? "" :
+        v!.Contains(',') || v.Contains('"') || v.Contains('\n') ? "\"" + v.Replace("\"", "\"\"") + "\"" : v;
 
     // ---------- 头部 chips ----------
 

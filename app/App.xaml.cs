@@ -136,6 +136,8 @@ public partial class App : Application
         bool tintMigrated = config.BackgroundColor == "#E814141B";
         if (tintMigrated) config.BackgroundColor = "#9914141B";
         if (anyIdAssigned || tintMigrated) ConfigStore.Save(config);
+        // 开机自启随设置同步；exe 移动目录后此处以当前路径自愈
+        Ui.AutoStart.Sync(config.AutoStart);
         I18n.Initialize(langArg ?? config.Language);
         var window = new MainWindow(config);
         window.Show();

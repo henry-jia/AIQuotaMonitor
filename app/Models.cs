@@ -88,6 +88,17 @@ public class AppConfig : ObservableObject
     private int _scrapeTimeoutSeconds = 30;
     public int ScrapeTimeoutSeconds { get => _scrapeTimeoutSeconds; set => Set(ref _scrapeTimeoutSeconds, Math.Clamp(value, 10, 300)); }
 
+    /// <summary>开机自启（HKCU Run 键，路径随当前 exe 自愈）。</summary>
+    private bool _autoStart;
+    public bool AutoStart { get => _autoStart; set => Set(ref _autoStart, value); }
+
+    /// <summary>任一配额跨过阈值时弹托盘气泡（仅跨过瞬间一次，不重复）。</summary>
+    private bool _notifyQuotaEnabled = true;
+    public bool NotifyQuotaEnabled { get => _notifyQuotaEnabled; set => Set(ref _notifyQuotaEnabled, value); }
+
+    private int _notifyQuotaPercent = 90;
+    public int NotifyQuotaPercent { get => _notifyQuotaPercent; set => Set(ref _notifyQuotaPercent, Math.Clamp(value, 50, 100)); }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsHorizontal => Layout == "horizontal";
 }

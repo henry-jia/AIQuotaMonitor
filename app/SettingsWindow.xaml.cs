@@ -41,6 +41,9 @@ public partial class SettingsWindow : Window
         OpacityLabel.Text = _working.Opacity.ToString("P0");
         GlobalIntervalBox.Text = _working.RefreshIntervalMinutes.ToString();
         ScrapeTimeoutBox.Text = _working.ScrapeTimeoutSeconds.ToString();
+        NotifyQuotaCheck.IsChecked = _working.NotifyQuotaEnabled;
+        NotifyQuotaBox.Text = _working.NotifyQuotaPercent.ToString();
+        AutoStartCheck.IsChecked = _working.AutoStart;
         ShowRemainingCheck.IsChecked = _working.ShowRemainingTime;
         ShowPaceCheck.IsChecked = _working.ShowPaceBaseline;
         RecordHistoryCheck.IsChecked = _working.RecordHistory;
@@ -172,6 +175,11 @@ public partial class SettingsWindow : Window
         ShowPaceCheck.Content = I18n.T("show_pace");
         RecordHistoryCheck.Content = I18n.T("record_history");
         RecordHistoryCheck.ToolTip = I18n.T("tip_record_history");
+        NotifyQuotaCheck.Content = I18n.T("notify_quota");
+        NotifyQuotaCheck.ToolTip = I18n.T("tip_notify_quota");
+        NotifyQuotaBox.ToolTip = I18n.T("tip_notify_quota");
+        AutoStartCheck.Content = I18n.T("auto_start");
+        AutoStartCheck.ToolTip = I18n.T("tip_auto_start");
         UnifiedFormatCheck.Content = I18n.T("unified_format");
         UnifiedFormatCheck.ToolTip = I18n.T("tip_unified_format");
         DateFormatCombo.ToolTip = I18n.T("tip_date_format");
@@ -471,6 +479,9 @@ public partial class SettingsWindow : Window
         _working.ShowRemainingTime = ShowRemainingCheck.IsChecked == true;
         _working.ShowPaceBaseline = ShowPaceCheck.IsChecked == true;
         _working.RecordHistory = RecordHistoryCheck.IsChecked == true;
+        _working.NotifyQuotaEnabled = NotifyQuotaCheck.IsChecked == true;
+        if (int.TryParse(NotifyQuotaBox.Text, out int qp)) _working.NotifyQuotaPercent = qp; // 属性内 clamp 50–100
+        _working.AutoStart = AutoStartCheck.IsChecked == true;
         _working.Language = (LanguageCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? I18n.LangAuto;
         if (int.TryParse(RemainingThresholdBox.Text, out int threshold) && threshold >= 1)
             _working.RemainingThresholdDays = threshold;

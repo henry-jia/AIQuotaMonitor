@@ -61,11 +61,13 @@ public partial class MainWindow : Window
 
         if (!testMode)
         {
-            if (!double.IsNaN(config.WindowLeft) && !double.IsNaN(config.WindowTop))
+            // 保存的位置可能因拔显示器/换分辨率落到所有屏幕外——夹回工作区，找不到则居中
+            if (!double.IsNaN(config.WindowLeft) && !double.IsNaN(config.WindowTop) &&
+                TryClampToScreen(config.WindowLeft, config.WindowTop, out double cx, out double cy))
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
-                Left = config.WindowLeft;
-                Top = config.WindowTop;
+                Left = cx;
+                Top = cy;
             }
             else
             {
@@ -413,6 +415,7 @@ public partial class MainWindow : Window
                 }
                 _nextDue[svc] = DateTime.Now.AddMinutes(Math.Max(1, svc.RefreshIntervalMinutes ?? _config.RefreshIntervalMinutes));
                 NotifyIfLoginNeeded(svc, prev, res);
+                NotifyQuotaThreshold(svc, prev, res);
                 UpdateCard(svc, res);
             }
         }
@@ -671,6 +674,39 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>把保存的窗口位置夹回任一屏幕工作区；完全找不到可见屏幕返回 false（调用方居中）。</summary>
+    private static bool TryClampToScreen(double x, double y, out double cx, out double cy)
+    {
+        cx = x;
+        cy = y;
+        var probe = new System.Drawing.Rectangle((int)x, (int)y, 200, 200);
+        var screens = WinForms.Screen.AllScreens;
+        if (!screens.Any(s => s.WorkingArea.IntersectsWith(probe))) return false;
+        var area = screens
+            .OrderByDescending(s => System.Drawing.Rectangle.Intersect(s.WorkingArea, probe).Width
+                * System.Drawing.Rectangle.Intersect(s.WorkingArea, probe).Height)
+            .First().WorkingArea;
+        cx = Math.Clamp(x, area.Left, Math.Max(area.Left, area.Right - 200));
+        cy = Math.Clamp(y, area.Top, Math.Max(area.Top, area.Bottom - 200));
+        return true;
+    }
+
+    /// <summary>任一配额向上跨过阈值时弹一次托盘气泡（小部件常被隐藏，90% 这类状态需要主动提醒）。</summary>
+    private void NotifyQuotaThreshold(ServiceConfig svc, ServiceScrapeResult? prev, ServiceScrapeResult res)
+    {
+        if (!_config.NotifyQuotaEnabled || _tray == null || res.Status != ScrapeStatus.Ok) return;
+        double th = _config.NotifyQuotaPercent;
+        foreach (var r in res.Rules)
+        {
+            if (r.Percent == null || r.Percent < th) continue;
+            double? before = prev?.Rules.FirstOrDefault(p => p.Label == r.Label)?.Percent;
+            if (before == null || before >= th) continue;
+            _tray.ShowBalloonTip(6000, I18n.T("app_title"),
+                I18n.T("quota_threshold_balloon", svc.Name, r.Label, r.Percent.Value.ToString("0.#")),
+                WinForms.ToolTipIcon.Warning);
+        }
+    }
+
     private void SavePosition()
     {
         if (_testMode || !IsLoaded || double.IsNaN(Left) || double.IsNaN(Top)) return;
@@ -880,6 +916,7 @@ public partial class MainWindow : Window
             if (!ConfigStore.Save(_config))
                 System.Windows.MessageBox.Show(this, I18n.T("config_save_failed"), I18n.T("settings_box_title"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
+            Ui.AutoStart.Sync(_config.AutoStart);
             I18n.Set(_config.Language); // 设置面板里改了语言时立即生效
             UpdateLanguageChecks();
             _results.Clear();
