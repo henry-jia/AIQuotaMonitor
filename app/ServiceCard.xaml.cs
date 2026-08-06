@@ -85,7 +85,7 @@ public partial class ServiceCard : UserControl
     {
         // 仅 Alt+拖拽触发排序；点在按钮上不触发
         if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0) return;
-        if (IsOnButton(e.OriginalSource as DependencyObject)) return;
+        if (Ui.IsOnButton(e.OriginalSource as DependencyObject)) return;
         _dragStart = e.GetPosition(this);
         e.Handled = true; // 阻止冒泡到主窗口的窗口拖动（DragMove）
     }
@@ -102,16 +102,6 @@ public partial class ServiceCard : UserControl
         if (Math.Abs(pos.X - start.X) < 5 && Math.Abs(pos.Y - start.Y) < 5) return;
         _dragStart = null;
         AltDragStarted?.Invoke(this, start);
-    }
-
-    private static bool IsOnButton(DependencyObject? d)
-    {
-        while (d != null)
-        {
-            if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
-            d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent;
-        }
-        return false;
     }
 
     /// <summary>Ctrl+点击服务名：用系统默认浏览器打开该服务的用量页面，方便手动核对官方数据。</summary>

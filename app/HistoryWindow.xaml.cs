@@ -42,7 +42,9 @@ public partial class HistoryWindow : Window
         _svcName = svc.Name;
         _svcId = svc.Id;
         _theme = ColorTheme.Resolve(cfg);
-        _samples = (samplesOverride ?? HistoryStore.Query(svc.Id!)).OrderBy(s => s.T).ToList();
+        // svc.Id 理论上迁移后必有；防御性处理：无 id 时直接空序列（Query(null) 只会白扫）
+        _samples = (samplesOverride ?? (svc.Id != null ? HistoryStore.Query(svc.Id) : Array.Empty<HistorySample>()))
+            .OrderBy(s => s.T).ToList();
         _selectedRule = MapKey(ruleLabel);
         RebuildRules(ruleLabel);
 
@@ -388,13 +390,14 @@ public partial class HistoryWindow : Window
             {
                 var prev = cur[^1];
                 bool drop = p.Pct < prev.Pct - 2.0;
-                bool resetBack = prev.ResetAt != null && p.ResetAt != null && p.ResetAt < prev.ResetAt;
+                // ResetAt 只要变化（哪怕小幅下降）就视为跨重置，避免画出误导性连接线
+                bool resetChanged = prev.ResetAt != null && p.ResetAt != null && p.ResetAt.Value != prev.ResetAt.Value;
                 bool gap = (p.T - prev.T).TotalHours > maxGapHours;
-                if (drop || resetBack || gap)
+                if (drop || resetChanged || gap)
                 {
                     segments.Add(cur);
                     cur = new List<HistorySample>();
-                    if (drop || resetBack) resetMarks.Add(p);
+                    if (drop || resetChanged) resetMarks.Add(p);
                 }
             }
             cur.Add(p);

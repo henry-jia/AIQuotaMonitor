@@ -219,11 +219,13 @@ public static class TestShot
         var c = new ServiceConfig { Id = "sample-c", Name = "智海 Max", Url = "https://example.com/console" };
         var d = new ServiceConfig { Id = "sample-d", Name = "澹月 Lite", Url = "https://example.com/lite" };
         var e = new ServiceConfig { Id = "sample-e", Name = "智海 Air", Url = "https://example.com/air" };
+        var f = new ServiceConfig { Id = "sample-f", Name = "玄圃 API", Url = "https://example.com/api" };
+        var g = new ServiceConfig { Id = "sample-g", Name = "沧海 Beta", Url = "https://example.com/beta", Paused = true };
 
         var config = new AppConfig
         {
             Layout = horizontal ? "horizontal" : "vertical",
-            Services = new List<ServiceConfig> { a, b, c, d, e },
+            Services = new List<ServiceConfig> { a, b, c, d, e, f, g },
         };
 
         var results = new Dictionary<ServiceConfig, ServiceScrapeResult>
@@ -276,6 +278,25 @@ public static class TestShot
                 {
                     new() { Label = "7 天用量", Percent = 71, Detail = "5.0 / 7 天", ResetText = "4 天后重置", ResetAt = DateTime.Now.AddDays(4) },
                 },
+            },
+            // 抓取失败（非疑似未登录）→ 「查看页面」入口
+            [f] = new ServiceScrapeResult
+            {
+                Service = f,
+                Status = ScrapeStatus.Error,
+                ErrorMessage = I18n.T("nav_failed_detail", "https://example.com/api", "Example"),
+            },
+            // 单服务暂停 + 订阅已过期 + 自动续费关
+            [g] = new ServiceScrapeResult
+            {
+                Service = g,
+                Status = ScrapeStatus.Ok,
+                Rules = new List<RuleResult>
+                {
+                    new() { Label = "30 天用量", Percent = 12, Detail = "6 / 50 次", ResetText = "21 天后重置", ResetAt = DateTime.Now.AddDays(21) },
+                },
+                Subscription = new SubscriptionInfo { ExpireAt = DateTime.Now.AddDays(-2), AutoRenew = false },
+                SubscriptionFetchedAt = DateTimeOffset.Now,
             },
         };
         return (config, results);

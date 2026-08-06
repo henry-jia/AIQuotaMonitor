@@ -33,22 +33,38 @@ public static class ConfigStore
         }
         catch
         {
-            // 配置损坏时回退到默认配置，避免程序无法启动
+            // 配置损坏：原档搬到 .corrupt-<时间戳> 供用户恢复，再回退默认配置
+            try
+            {
+                if (File.Exists(ConfigPath))
+                    File.Move(ConfigPath, ConfigPath + ".corrupt-" + DateTime.Now.ToString("yyyyMMddHHmmss"), true);
+            }
+            catch
+            {
+                // 备份尽力而为，失败仍回退默认
+            }
         }
         var def = CreateDefault();
         Save(def);
         return def;
     }
 
-    public static void Save(AppConfig config)
+    /// <summary>原子写入（temp + Replace），崩溃/断电不会截断 config.json。返回是否成功，
+    /// 用户主动保存的调用方应提示失败；后台自动保存可忽略。</summary>
+    public static bool Save(AppConfig config)
     {
         try
         {
-            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(config, Options));
+            Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
+            string tmp = ConfigPath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(config, Options));
+            if (File.Exists(ConfigPath)) File.Replace(tmp, ConfigPath, null);
+            else File.Move(tmp, ConfigPath);
+            return true;
         }
         catch
         {
-            // 目录只读等场景下静默失败，不影响主流程
+            return false;
         }
     }
 
@@ -59,31 +75,40 @@ public static class ConfigStore
     /// <summary>配置的序列化指纹，用于判断保存前后某个服务是否有变化。</summary>
     public static string Fingerprint<T>(T obj) => JsonSerializer.Serialize(obj, Options);
 
-    /// <summary>默认配置：含一个未启用的示例服务。</summary>
-    public static AppConfig CreateDefault() => new()
+    /// <summary>默认配置：含一个未启用的示例服务（名称/标签/重置正则随界面语言）。</summary>
+    public static AppConfig CreateDefault()
     {
-        Services = new List<ServiceConfig>
+        bool zh = I18n.Current == I18n.LangZh;
+        return new AppConfig
         {
-            new ServiceConfig
+            Services = new List<ServiceConfig>
             {
-                Id = Guid.NewGuid().ToString("N"),
-                Name = "示例服务（设置中启用）",
-                Enabled = false,
-                Color = "#4F8CFF",
-                Url = "https://example.com/usage",
-                Rules = new List<QuotaRule>
+                new ServiceConfig
                 {
-                    new QuotaRule { Id = Guid.NewGuid().ToString("N"), Label = "5 小时用量", Type = QuotaRule.TypePercent },
-                    new QuotaRule
+                    Id = Guid.NewGuid().ToString("N"),
+                    Name = zh ? "示例服务（设置中启用）" : "Sample service (enable in Settings)",
+                    Enabled = false,
+                    Url = "https://example.com/usage",
+                    Rules = new List<QuotaRule>
                     {
-                        Id = Guid.NewGuid().ToString("N"),
-                        Label = "7 天用量",
-                        Type = QuotaRule.TypeFraction,
-                        Pattern = QuotaRule.DefaultFractionPattern,
-                        ResetPattern = @"(\d+\s*天后重置)",
+                        new QuotaRule
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            Label = zh ? "5 小时用量" : "5-hour usage",
+                            Type = QuotaRule.TypePercent,
+                        },
+                        new QuotaRule
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            Label = zh ? "7 天用量" : "7-day usage",
+                            Type = QuotaRule.TypeFraction,
+                            Pattern = QuotaRule.DefaultFractionPattern,
+                            // 留空走自动识别，中英文重置文本都能认
+                            ResetPattern = zh ? @"(\d+\s*天后重置)" : null,
+                        },
                     },
                 },
             },
-        },
-    };
+        };
+    }
 }

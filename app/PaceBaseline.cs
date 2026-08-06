@@ -10,10 +10,11 @@ namespace AIQuotaMonitor;
 /// </summary>
 public static class PaceBaseline
 {
+    // (?<![A-Za-z]) 防止吃掉单词内数字（如 "100dpi" 误判为 100 天窗口）
     private static readonly Regex Hours = new(
-        @"(\d+(?:\.\d+)?)\s*(?:个?小时|hours?\b|hrs?\b|h\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(?<![A-Za-z])(\d+(?:\.\d+)?)\s*(?:个?小时|hours?\b|hrs?\b|h\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex Days = new(
-        @"(\d+(?:\.\d+)?)\s*(?:天|日|days?\b|d\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(?<![A-Za-z])(\d+(?:\.\d+)?)\s*(?:天|日|days?\b|d\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex Week = new(@"周|week", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex Month = new(@"月|month", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 

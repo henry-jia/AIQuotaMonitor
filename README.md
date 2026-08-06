@@ -21,6 +21,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 - 无边框圆角深色半透明小部件，按住空白处拖动，位置自动保存；置顶可开关；不透明度可调；**背景色可设定**（取色对话框含屏幕取色器；Win11 毛玻璃下该色作为 tint，alpha 决定透出程度）；**滚轮整体缩放界面（含文字），标题栏 100% 按钮一键还原**
 - **Windows 11 原生化**：小部件用 DWM **Acrylic 毛玻璃**、设置/历史/取色窗口用 **Mica**，深色沉浸、圆角与系统 8px 对齐；图标按钮换 **Segoe Fluent Icons**（刷新/暂停/关闭/警告），hover/pressed 分层反馈；Win10 自动降级为实色圆角
 - 每个服务一张卡片：主题色圆点 + 名称（**Ctrl+点击直接在浏览器打开官方用量页面**，按住 Ctrl 时名称变链接样式）+ 最后刷新时间（订阅行右侧小字，今天显示时分、跨天带日期）；每条配额一行：标签 + 百分比 + 细进度条 + 用量明细/重置时间
+- **Alt+拖拽排序卡片**：虚影悬浮窗自由跟手（可拖出窗口），其他卡片 150ms 丝滑让位，顺序持久化
 - **全局颜色主题**：进度条按 4 种语义状态着色——**正常**（主题主色）、**接近基准**（用量距时间基准线 10 个百分点以内；无基准时 ≥60%）、**超出基准**（用量跑在时间前面）、**90% 告警**（用量 ≥90% 优先于其他状态）。内置蔚蓝/翡翠/紫罗兰/落日/石墨 5 套预设一键切换，也可选「自定义」逐色修改（颜色选择对话框带屏幕取色器），见下文「颜色主题」
 - **时间基准线**：进度条上的竖线 = 按时间均匀消耗此刻应到的位置（5 小时窗口过半在 50%，7 天窗口第 4 天在 57%）。**白芯深边** = 用量未超线（余量健康）；**红芯白边** = 用量已超线（用得偏快，注意省着用）；悬停进度条有文字说明。窗口长度从规则标签推断（`5 小时`/`5-hour`→5h、`7 天`/`周`/`week`→7 天、`月`/`month`→30 天），标签不含窗口信息或没有重置时间则不显示；可在设置里全局开关
 - 纵向罗列 / 横向铺开两种布局，窗口自动适应内容大小
@@ -76,7 +77,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 | 重置选择器 | 可选。仅选择器模式生效。抓取重置时间文本用的选择器，留空对整页匹配 |
 | 重置正则 | 可选。自动定位模式下留空会自动识别「重置时间：…」「…后重置」「Resets in …」；自定义时第一个捕获组作为展示文本，不区分大小写 |
 
-服务级字段：名称、网址、额外等待秒数、未登录指示选择器（可选）、刷新间隔（可选，留空用全局）。
+服务级字段：名称、网址、额外等待秒数、未登录指示选择器（可选）、刷新间隔（可选，留空用全局）、订阅信息网址（可选）。
 
 ## 颜色主题（全局设置）
 
@@ -94,7 +95,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 选「**自定义**」后五行色板变为可点击：点击色块打开**颜色选择对话框**（大色块预览、`#RRGGBB` 输入、R/G/B 滑块）。对话框里的「**屏幕取色**」按钮可拾取屏幕上任意颜色：点击后整屏冻结，移动光标时旁边显示 7×7 像素放大镜和当前 hex，**左键单击取色，Esc 或右键取消**。
 
-配置存于 `config.json` 的 `theme` 字段（`name` 为预设 key 或 `"custom"`，自定义时另存五个 hex）；旧配置没有 `theme` 字段时自动使用「蔚蓝」，老版本的服务级 `color` 字段仍保留但不再生效。
+配置存于 `config.json` 的 `theme` 字段（`name` 为预设 key 或 `"custom"`，自定义时另存五个 hex）；旧配置没有 `theme` 字段时自动使用「蔚蓝」；老版本的服务级 `color` 字段读入时忽略、不再写入。
 
 ## 重置时间的解析与显示（全局设置）
 
@@ -136,13 +137,15 @@ dotnet publish app/AIQuotaMonitor.csproj -c Release -r win-x64 --self-contained 
 
 ## 测试截图模式
 
-不初始化 WebView2，用内置示例数据（正常两条配额 / 需要登录 / 抓取失败三张卡片）渲染主窗口并截图退出：
+不初始化 WebView2，用内置示例数据渲染主窗口并截图退出。主窗口共七张卡片，覆盖全部状态：正常（三条配额覆盖正常/超基准/90% 告警色）/ 需要登录 / 抓取失败（去登录）/ 陈旧回退 / 陈旧+疑似未登录 / 抓取失败（查看页面）/ 暂停+订阅过期：
 
 ```powershell
 AIQuotaMonitor.exe --test-shot out.png                          # 纵向
 AIQuotaMonitor.exe --test-shot out.png --layout horizontal      # 横向
 AIQuotaMonitor.exe --test-shot out.png --lang en                # 指定界面语言（zh/en）
 AIQuotaMonitor.exe --test-history-shot out.png                  # 用量历史窗口（合成样本）
+AIQuotaMonitor.exe --test-settings-shot settings.png            # 设置窗口（两个页签）
+AIQuotaMonitor.exe --test-frames frames_dir                     # 动画帧序列（合成演示 GIF）
 ```
 
 ## 配置存储
@@ -212,21 +215,26 @@ AIQuotaMonitor.exe --test-history-shot out.png                  # 用量历史�
 ```
 app/
   AIQuotaMonitor.csproj   net10.0-windows，WPF + WindowsForms，Microsoft.Web.WebView2
-  App.xaml(.cs)           入口、命令行参数（--test-shot）、全局深色样式
+  App.xaml(.cs)           入口、单实例、命令行参数（--test-shot 等）、全局深色样式
   Models.cs               AppConfig / ServiceConfig / QuotaRule / 抓取结果模型
-  ConfigStore.cs          config.json 读写（camelCase、默认值、JSON 深拷贝）
+  ConfigStore.cs          config.json 读写（原子写、损坏备份、默认值、JSON 深拷贝）
   I18n.cs                 UI 多语言（zh/en 字符串表、跟随系统解析、Changed 事件）
   ColorTheme.cs           全局颜色主题（5 套预设 + 自定义解析、状态色语义）
+  Backdrop.cs             Win11 DWM 背景材质（Acrylic/Mica、Win10 降级）
   ScrapeEngine.cs         隐藏宿主窗口 + 共享 WebView2，导航→等待→JS 提取
+  CookieStore.cs          Cookie 导出/还原（DPAPI 加密，过期清理）
+  PaceBaseline.cs         时间基准线（窗口推断、已过比例）
+  ResetTimeParser.cs      重置时间解析（中英/相对/绝对）与分级显示
+  GhostWindow.cs          拖拽排序虚影悬浮窗
   MainWindow.xaml(.cs)    小部件窗口、定时刷新、托盘、右键菜单
-  ServiceCard.xaml(.cs)   服务卡片（正常 / 需要登录 / 抓取失败三态）
+  ServiceCard.xaml(.cs)   服务卡片（正常 / 需要登录 / 抓取失败 / 陈旧回退）
   SettingsWindow.xaml(.cs) 设置界面（服务/规则编辑、预设、测试抓取、全局设置、颜色主题）
   ColorPickerDialog.xaml(.cs) 颜色选择对话框（hex/RGB 滑块 + 屏幕取色器）
   LoginWindow.xaml(.cs)   内置浏览器登录窗口
   HistoryStore.cs         用量历史样本 history.jsonl（追加/稀释/查询）
   LastGoodStore.cs        上次成功结果 lastgood.json（陈旧回退源）
   HistoryWindow.xaml(.cs) 用量历史窗口（手绘趋势图 + 统计）
-  TestShot.cs             --test-shot 截图模式
+  TestShot.cs             --test-shot / --test-settings-shot / --test-frames 截图模式
 ```
 
 ## 免责声明与合规说明

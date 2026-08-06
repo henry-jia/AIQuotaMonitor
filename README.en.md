@@ -97,7 +97,7 @@ The **Color theme** dropdown at the top of Global settings offers 5 presets (Azu
 
 Choose **Custom** to make the swatches clickable: each opens a **color picker dialog** (large preview, `#RRGGBB` input, R/G/B sliders). The dialog's **Pick from screen** button freezes the screen and shows a 7×7-pixel loupe with the current hex — **left-click to pick, Esc or right-click to cancel**.
 
-Stored in `config.json` under `theme` (`name` = preset key or `"custom"`, plus five hex values when custom). Configs without `theme` default to Azure; the legacy per-service `color` field is kept but no longer used.
+Stored in `config.json` under `theme` (`name` = preset key or `"custom"`, plus five hex values when custom). Configs without `theme` default to Azure; the legacy per-service `color` field is ignored on load and no longer written.
 
 ## Reset time: parsing & display (global settings)
 
@@ -194,7 +194,7 @@ The UI supports **简体中文** and **English** (settings panel, context menus,
 
 ## Test screenshot modes
 
-Renders the main window with built-in sample data (OK / need-login / failed cards) without initializing WebView2:
+Renders the main window with built-in sample data — seven cards covering every state: OK (three quotas covering normal/ahead/critical colors), need-login, failed (Sign in), stale fallback, stale + login-suggested, failed (View page), and paused + expired subscription — without initializing WebView2:
 
 ```powershell
 AIQuotaMonitor.exe --test-shot out.png                          # vertical

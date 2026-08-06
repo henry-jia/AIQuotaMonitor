@@ -30,6 +30,9 @@ public class HistorySample
 /// </summary>
 public static class HistoryStore
 {
+    /// <summary>内存/文件样本数上限；超出时把 &gt;1 天的数据也稀释为每小时一条。</summary>
+    private const int MaxSamples = 100_000;
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -109,6 +112,16 @@ public static class HistoryStore
             {
                 // 写失败静默，不影响主流程
             }
+            // 样本数上限：极端配置（多服务×高频）下 7 天窗口可能膨胀到上百 MB，超限加严稀释
+            if (_samples.Count > MaxSamples)
+            {
+                var tighter = Decimate(_samples, DateTimeOffset.Now, hourlyAfterDays: 1);
+                if (tighter.Count < _samples.Count)
+                {
+                    _samples = tighter;
+                    toRewrite = tighter;
+                }
+            }
             if (DateTime.Now - _lastDecimate >= TimeSpan.FromHours(1))
             {
                 _lastDecimate = DateTime.Now;
@@ -145,8 +158,8 @@ public static class HistoryStore
         }
     }
 
-    /// <summary>保留稀释（纯函数，输入须按 T 升序）：&gt;30 天丢弃；&gt;7 天按（服务, 规则, 小时）桶留最早；近 7 天原样。</summary>
-    internal static List<HistorySample> Decimate(List<HistorySample> samples, DateTimeOffset now)
+    /// <summary>保留稀释（纯函数，输入须按 T 升序）：&gt;30 天丢弃；&gt;hourlyAfterDays 天按（服务, 规则, 小时）桶留最早；其余原样。</summary>
+    internal static List<HistorySample> Decimate(List<HistorySample> samples, DateTimeOffset now, double hourlyAfterDays = 7)
     {
         var result = new List<HistorySample>(samples.Count);
         var seen = new HashSet<string>();
@@ -154,9 +167,10 @@ public static class HistoryStore
         {
             var age = now - s.T;
             if (age > TimeSpan.FromDays(30)) continue;
-            if (age > TimeSpan.FromDays(7))
+            if (age > TimeSpan.FromDays(hourlyAfterDays))
             {
-                string bucket = $"{s.Svc}|{s.RuleId ?? s.Rule}|{s.T.LocalDateTime:yyyyMMddHH}";
+                // UTC 做桶 key：避免 DST 跳变时本地墙上时钟碰撞丢样本
+                string bucket = $"{s.Svc}|{s.RuleId ?? s.Rule}|{s.T.UtcDateTime:yyyyMMddHH}";
                 if (!seen.Add(bucket)) continue;
             }
             result.Add(s);

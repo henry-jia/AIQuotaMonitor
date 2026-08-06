@@ -5,6 +5,9 @@ namespace AIQuotaMonitor;
 
 public partial class App : Application
 {
+    // 静态持有 Mutex：实例级字段会被 GC，锁释放即失去单实例保护
+    private static System.Threading.Mutex? _singleInstance;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -96,6 +99,16 @@ public partial class App : Application
                 System.Windows.MessageBox.Show(I18n.T("testshot_failed") + ex.Message, "AIQuotaMonitor",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            Shutdown();
+            return;
+        }
+
+        // 单实例：WebView2 用户数据目录与各数据文件多进程共享是未定义行为（登录态损坏/历史错行）
+        _singleInstance = new System.Threading.Mutex(true, "AIQuotaMonitor.SingleInstance", out bool createdNew);
+        if (!createdNew)
+        {
+            System.Windows.MessageBox.Show(I18n.T("already_running"), "AIQuotaMonitor",
+                MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }

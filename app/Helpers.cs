@@ -27,6 +27,17 @@ public static class Ui
         b.Freeze();
         return b;
     }
+
+    /// <summary>命中源是否在按钮上（拖动/点击判定共用，避免各处复制视觉树遍历）。</summary>
+    public static bool IsOnButton(System.Windows.DependencyObject? d)
+    {
+        while (d != null)
+        {
+            if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
+            d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as System.Windows.FrameworkElement)?.Parent;
+        }
+        return false;
+    }
 }
 
 /// <summary>托盘图标：复用 exe 图标资源 app.ico（多尺寸仪表盘标记）。</summary>

@@ -137,17 +137,34 @@ public partial class MainWindow : Window
         var services = _config.Services.Where(s => s.Enabled).ToList();
         if (services.Count == 0)
         {
+            var openSettings = new Button
+            {
+                Content = I18n.T("settings"),
+                Style = (Style)FindResource("AccentButtonStyle"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 8, 0, 0),
+            };
+            openSettings.Click += (s, e) => OpenSettings();
             CardsPanel.Children.Add(new Border
             {
-                CornerRadius = new CornerRadius(10),
+                CornerRadius = new CornerRadius(8),
                 Background = Ui.Brush("#0DFFFFFF"),
+                BorderBrush = Ui.Brush("#14FFFFFF"),
+                BorderThickness = new Thickness(1),
                 Padding = new Thickness(14, 12, 14, 12),
-                Child = new TextBlock
+                Child = new StackPanel
                 {
-                    Text = I18n.T("no_services_hint"),
-                    Foreground = Ui.Brush("#9A9AA5"),
-                    FontSize = 12,
-                    TextWrapping = TextWrapping.Wrap,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = I18n.T("no_services_hint"),
+                            Foreground = Ui.Brush("#9A9AA5"),
+                            FontSize = 12,
+                            TextWrapping = TextWrapping.Wrap,
+                        },
+                        openSettings,
+                    },
                 },
             });
             return;
@@ -621,7 +638,7 @@ public partial class MainWindow : Window
         // 按住 Alt 时是卡片拖拽排序，窗口拖动让路（否则 DragMove 会吃掉事件，卡片永远拖不动）
         if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) != 0) return;
         // 按住任意空白处拖动（按钮除外），拖动结束自动保存位置
-        if (e.LeftButton == MouseButtonState.Pressed && !IsOnButton(e.OriginalSource as DependencyObject))
+        if (e.LeftButton == MouseButtonState.Pressed && !Ui.IsOnButton(e.OriginalSource as DependencyObject))
         {
             // DragMove 的 modal loop 会吞掉 MouseUp，点击判定放这里：松手后无位移 = 点击，
             // 落在配额行上则打开历史窗口（按住拖动仍照常拖窗口）
@@ -652,16 +669,6 @@ public partial class MainWindow : Window
                 return;
             }
         }
-    }
-
-    private static bool IsOnButton(DependencyObject? d)
-    {
-        while (d != null)
-        {
-            if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
-            d = VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent;
-        }
-        return false;
     }
 
     private void SavePosition()
@@ -711,6 +718,7 @@ public partial class MainWindow : Window
             _tray.Visible = false;
             _tray.Dispose();
         }
+        _engine?.Dispose();
         System.Windows.Application.Current.Shutdown();
     }
 
@@ -869,7 +877,9 @@ public partial class MainWindow : Window
             foreach (var kv in carriedResults) kv.Value.Service = kv.Key;
 
             _config = newConfig;
-            ConfigStore.Save(_config);
+            if (!ConfigStore.Save(_config))
+                System.Windows.MessageBox.Show(this, I18n.T("config_save_failed"), I18n.T("settings_box_title"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             I18n.Set(_config.Language); // 设置面板里改了语言时立即生效
             UpdateLanguageChecks();
             _results.Clear();

@@ -127,9 +127,11 @@ public class ServiceConfig : ObservableObject
     private string _name = "";
     public string Name { get => _name; set => Set(ref _name, value); }
 
-    /// <summary>历史遗留：旧版的服务级主题色。现由全局颜色主题（AppConfig.Theme）取代，
-    /// 字段仅为兼容旧 config.json 保留，渲染与设置界面均不再使用。</summary>
+    /// <summary>历史遗留：旧版的服务级主题色。现由全局颜色主题（AppConfig.Theme）取代；
+    /// 不再写入新 config.json（旧档含此字段也能正常读入忽略）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     private string _color = "#4F8CFF";
+    [System.Text.Json.Serialization.JsonIgnore]
     public string Color { get => _color; set => Set(ref _color, value); }
 
     private string _url = "";
@@ -215,7 +217,8 @@ public enum ScrapeStatus { Ok, NeedLogin, Error }
 /// <summary>订阅信息：到期时间与自动续费状态（页面智能扫描，无需配置规则）。</summary>
 public class SubscriptionInfo
 {
-    public DateTime? ExpireAt;
+    // DateTimeOffset 保留时区信息：lastgood 跨机器/时区还原后到期天数计算仍正确
+    public DateTimeOffset? ExpireAt;
     /// <summary>true 开 / false 关 / null 未识别。</summary>
     public bool? AutoRenew;
 }

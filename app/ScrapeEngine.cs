@@ -17,9 +17,9 @@ public class ScrapeException : Exception
 }
 
 /// <summary>
-/// 抓取引擎：一个隐藏的 1x1 移出屏幕的宿主窗口承载共享 WebView2，
-/// 所有服务共用一个用户数据目录（同一域名只需登录一次）。
-/// 所有公开方法必须在 UI 线程调用。
+/// 抓取引擎：一个移出屏幕但保持 1280×800 正常视口的宿主窗口承载共享 WebView2
+/// （视口不能小——懒加载 SPA 靠视口/可见性触发渲染），所有服务共用一个用户数据目录
+/// （同一域名只需登录一次）。所有公开方法必须在 UI 线程调用；退出时调用 Dispose 释放。
 /// </summary>
 public sealed class ScrapeEngine
 {
@@ -35,6 +35,21 @@ public sealed class ScrapeEngine
             "AIQuotaMonitor", "WebView2UserData");
 
     public CoreWebView2Environment? Env => _env;
+
+    /// <summary>退出时调用：关闭 WebView2 与宿主窗口，避免 Chromium 子进程残留
+    /// 锁住 WebView2UserData 导致下次启动失败或 Cookie 存储损坏。</summary>
+    public void Dispose()
+    {
+        try
+        {
+            _webView?.Dispose();
+            _host?.Close();
+        }
+        catch
+        {
+            // 退出清理尽力而为
+        }
+    }
 
     /// <summary>检测 WebView2 Runtime 是否可用，缺失时抛出带本地化提示的异常。</summary>
     public static void CheckRuntime()

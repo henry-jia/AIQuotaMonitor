@@ -31,6 +31,8 @@ public static class ResetTimeParser
         @"(\d+)\s*(?:分钟|分|minutes?\b|mins?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex TimeOnly = new(
         @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})", RegexOptions.Compiled);
+    private static readonly Regex TimeAmPm = new(
+        @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})\s*(?<ampm>[APap][Mm])", RegexOptions.Compiled);
     private static readonly Regex LeadWords = new(
         @"^\s*(?:重置(?:时间|日期)?|Resets?(?:\s+in)?)\s*[：:]?\s*",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -85,6 +87,19 @@ public static class ResetTimeParser
         {
             dt = DateTime.SpecifyKind(dt, DateTimeKind.Local);
             if (dt < now.AddHours(-1)) dt = dt.AddYears(1); // 无年份日期已过去则视为明年
+            return dt;
+        }
+
+        // 时间 + AM/PM（如 "3:00 PM"）：须在纯时间兜底前处理，否则 PM 被吞变成凌晨
+        m = TimeAmPm.Match(raw);
+        if (m.Success && TryBuild(now.Year, now.Month, now.Day, G(m, "h"), G(m, "mi"), out dt))
+        {
+            string ampm = m.Groups["ampm"].Value;
+            if (ampm.Equals("PM", StringComparison.OrdinalIgnoreCase) && dt.Hour < 12)
+                dt = dt.AddHours(12);
+            else if (ampm.Equals("AM", StringComparison.OrdinalIgnoreCase) && dt.Hour == 12)
+                dt = dt.AddHours(-12);
+            if (dt <= now) dt = dt.AddDays(1); // 今天已过则视为明天
             return dt;
         }
 
