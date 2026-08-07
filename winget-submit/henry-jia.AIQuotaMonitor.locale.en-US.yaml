@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 PackageIdentifier: henry-jia.AIQuotaMonitor
-PackageVersion: 1.3.0
+PackageVersion: 1.4.0
 PackageLocale: en-US
 Publisher: henry-jia
 PackageName: AIQuotaMonitor
@@ -23,6 +23,6 @@ Tags:
   - widget
   - wpf
   - desktop
-ReleaseNotesUrl: https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.3.0
+ReleaseNotesUrl: https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.4.0
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

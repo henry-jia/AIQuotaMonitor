@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: henry-jia.AIQuotaMonitor
-PackageVersion: 1.3.0
+PackageVersion: 1.4.0
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
   - RelativeFilePath: AIQuotaMonitor.exe
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.3.0/AIQuotaMonitor.zip
-    InstallerSha256: 3AA1CFE37BD0FFCC6DA01A72E66EF25A92DAE6625BB12C65020E1F475B595AE1
+    InstallerUrl: https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.4.0/AIQuotaMonitor.zip
+    InstallerSha256: B5271F06C234BD3480257AFF39C453C974924539D31B81A5D20ED30F82E3FE3F
 ManifestType: installer
 ManifestVersion: 1.6.0
