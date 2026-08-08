@@ -21,8 +21,13 @@ public static class Backdrop
     private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
     private const int DWMWCP_ROUND = 2;
     private const uint DWMWA_COLOR_NONE = 0xFFFFFFFE;
+    private const int DWMSBT_NONE = 1;            // 关闭材质（重应用时先关再开）
     private const int DWMSBT_MAINWINDOW = 2;      // Mica
     private const int DWMSBT_TRANSIENTWINDOW = 3; // Acrylic
+
+    private const int WM_DPICHANGED = 0x02E0;
+    private const int WM_EXITSIZEMOVE = 0x0232;
+    private const int WM_DWMCOMPOSITIONCHANGED = 0x031E;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MARGINS { public int Left, Right, Top, Bottom; }
@@ -43,6 +48,7 @@ public static class Backdrop
         {
             window.SourceInitialized -= OnSourceInitialized;
             ApplyNow(window, kind, hideBorder);
+            HookReapply(window, kind);
         }
         window.SourceInitialized += OnSourceInitialized;
     }
@@ -69,6 +75,33 @@ public static class Backdrop
         window.Background = Brushes.Transparent;
         var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
         DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        int type = kind == Kind.Acrylic ? DWMSBT_TRANSIENTWINDOW : DWMSBT_MAINWINDOW;
+        DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref type, 4);
+    }
+
+    /// <summary>
+    /// 跨屏拖动 / DPI 变化 / DWM 重组时材质可能脱落（透明区渲染成黑色斑块），
+    /// 监听对应消息并重应用材质。hook 挂在 HwndSource 上，随窗口关闭自动释放。
+    /// </summary>
+    private static void HookReapply(Window window, Kind kind)
+    {
+        if (Environment.OSVersion.Version.Build < 22000 || kind == Kind.None) return;
+        if (PresentationSource.FromVisual(window) is not HwndSource source) return;
+        source.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+        {
+            if (msg == WM_EXITSIZEMOVE || msg == WM_DPICHANGED || msg == WM_DWMCOMPOSITIONCHANGED)
+                Reapply(hwnd, kind);
+            return IntPtr.Zero;
+        });
+    }
+
+    /// <summary>重铺玻璃帧 + 关开材质，强制 DWM 重算整块背景。</summary>
+    private static void Reapply(IntPtr hwnd, Kind kind)
+    {
+        var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+        DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        int off = DWMSBT_NONE;
+        DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref off, 4);
         int type = kind == Kind.Acrylic ? DWMSBT_TRANSIENTWINDOW : DWMSBT_MAINWINDOW;
         DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref type, 4);
     }
