@@ -35,6 +35,7 @@ public sealed class ScrapeEngine
             "AIQuotaMonitor", "WebView2UserData");
 
     public CoreWebView2Environment? Env => _env;
+    internal string? SessionRestoreErrorCode { get; private set; }
 
     /// <summary>退出时调用：关闭 WebView2 与宿主窗口，避免 Chromium 子进程残留
     /// 锁住 WebView2UserData 导致下次启动失败或 Cookie 存储损坏。</summary>
@@ -94,7 +95,8 @@ public sealed class ScrapeEngine
             _host.Content = _webView;
             await _webView.EnsureCoreWebView2Async(_env);
             // 还原上次保存的 Cookie（含会话级登录票据，见 CookieStore 注释）
-            await CookieStore.RestoreAsync(_webView.CoreWebView2!);
+            var restore = await CookieStore.RestoreAsync(_webView.CoreWebView2!);
+            SessionRestoreErrorCode = restore.ErrorCode;
         }
         finally
         {
@@ -108,11 +110,12 @@ public sealed class ScrapeEngine
         int timeoutSeconds = 30, CancellationToken ct = default)
     {
         var result = new ServiceScrapeResult { Service = service, Time = DateTimeOffset.Now };
+        CoreWebView2? wv = null;
         await _scrapeLock.WaitAsync(ct);
         try
         {
             await EnsureInitializedAsync();
-            var wv = _webView!.CoreWebView2!;
+            wv = _webView!.CoreWebView2!;
 
             // 1) 导航并等待完成（导航报错时检查页面实况，重定向链误报则继续）
             await NavigateAsync(wv, service.Url, timeoutSeconds, ct);
@@ -250,8 +253,6 @@ public sealed class ScrapeEngine
                     result.SubscriptionFetchedAt = DateTimeOffset.Now;
             }
 
-            // 7) 抓取后保存 Cookie：登录成功/票据续期后及时落盘（含会话级票据）
-            await CookieStore.SaveAsync(wv);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -260,9 +261,28 @@ public sealed class ScrapeEngine
         }
         finally
         {
+            // 所有结果都保存：登录重定向、页面改版、单条规则失败期间也可能刷新认证票据。
+            // 服务端失效的 Cookie 即使保存也不会重新生效，因此不会绕过服务端过期策略。
+            if (wv != null) await CookieStore.SaveAsync(wv);
             _scrapeLock.Release();
         }
         return result;
+    }
+
+    /// <summary>登录窗口关闭或应用退出前立即保存共享 WebView profile 的 Cookie。</summary>
+    internal async Task<CookiePersistenceResult> SaveSessionAsync()
+    {
+        await _scrapeLock.WaitAsync();
+        try
+        {
+            if (_webView?.CoreWebView2 is { } wv)
+                return await CookieStore.SaveAsync(wv);
+            return CookiePersistenceResult.Ok();
+        }
+        finally
+        {
+            _scrapeLock.Release();
+        }
     }
 
     /// <summary>导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。</summary>
@@ -499,15 +519,42 @@ public sealed class ScrapeEngine
     {
         // 选择器留空 = 自动定位模式：用「标签」文字在页面上找到锚点，
         // 再向上找第一个匹配正则的容器，在容器内取数值和重置时间。
+        RuleResult result;
         if (string.IsNullOrWhiteSpace(rule.Selector))
         {
             var others = service.Rules
                 .Where(r => !ReferenceEquals(r, rule))
                 .Select(r => string.IsNullOrWhiteSpace(r.MatchText) ? r.Label : r.MatchText!)
                 .ToList();
-            return await ScrapeRuleAutoAsync(wv, rule, others);
+            result = await ScrapeRuleAutoAsync(wv, rule, others);
         }
-        return await ScrapeRuleBySelectorAsync(wv, rule);
+        else
+        {
+            result = await ScrapeRuleBySelectorAsync(wv, rule);
+        }
+
+        ApplyFiveHourIdleDetail(rule, result);
+        return result;
+    }
+
+    /// <summary>5 小时滚动窗口在首次调用前通常没有可显示的重置时间。
+    /// 只在用量为零且页面没有任何重置信息时补充空闲提示；已有倒计时或已有用量时不覆盖。</summary>
+    internal static void ApplyFiveHourIdleDetail(QuotaRule rule, RuleResult result)
+    {
+        if (result.Error != null || result.Percent is not { } percent || percent != 0 ||
+            result.ResetAt != null || !string.IsNullOrWhiteSpace(result.ResetText))
+            return;
+
+        bool isFiveHour = PaceBaseline.WindowHours(rule.Label) == 5 ||
+            (rule.MatchText?.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(alias => PaceBaseline.WindowHours(alias) == 5) ?? false);
+        if (!isFiveHour) return;
+
+        string idle = I18n.T("session_timer_starts_on_first_use");
+        if (string.Equals(result.Detail, idle, StringComparison.Ordinal)) return;
+        result.Detail = string.IsNullOrWhiteSpace(result.Detail)
+            ? idle
+            : $"{result.Detail} · {idle}";
     }
 
     /// <summary>自动定位模式：标签即页面上的文字（如「每周使用额度」），无需 CSS 知识。
@@ -530,7 +577,12 @@ public sealed class ScrapeEngine
             return rr;
         }
         ParseRulePayload(rr, rule, payload, out string? reset);
-        if (rr.Error == null && !string.IsNullOrWhiteSpace(reset))
+        if (rr.Error == null && reset?.Contains("当前时段暂无调用", StringComparison.Ordinal) == true)
+        {
+            // 火山 Coding Plan 的当前会话从首次调用才开始计时；空会话没有可诚实推算的绝对时间。
+            rr.Detail = I18n.T("session_timer_starts_on_first_use");
+        }
+        else if (rr.Error == null && !string.IsNullOrWhiteSpace(reset))
         {
             rr.ResetText = reset;
             rr.ResetAt = ResetTimeParser.Parse(reset, DateTime.Now);
@@ -540,7 +592,7 @@ public sealed class ScrapeEngine
 
     /// <summary>自动定位提取脚本：锚点定位 → 容器内取「字号最大的匹配元素」→ 同区域找重置时间。
     /// 返回 { ok, groups, text, reset, quality }；quality 供等待轮询判断真实数值是否已渲染。</summary>
-    private static string BuildAutoExtractScript(QuotaRule rule, string resetPat,
+    internal static string BuildAutoExtractScript(QuotaRule rule, string resetPat,
         System.Collections.Generic.IReadOnlyList<string> otherAnchors) => $$"""
         (function () {
           try {
@@ -548,7 +600,10 @@ public sealed class ScrapeEngine
               .split("|")
               .map(function (s) { return s.replace(/\s+/g, ""); })
               .filter(function (s) { return s.length > 0; });
-            var others = {{JsonSerializer.Serialize(otherAnchors)}};
+            var others = {{JsonSerializer.Serialize(otherAnchors)}}
+              .join("|").split("|")
+              .map(function (s) { return s.replace(/\s+/g, ""); })
+              .filter(function (s) { return s.length > 0; });
             if (!labels.length) return JSON.stringify({ ok:false, err:"labels_empty" });
             var re = new RegExp({{JsString(rule.Pattern)}}, "i");
             // 文档收集：主文档 + 同源 iframe + 所有开放的 shadow root

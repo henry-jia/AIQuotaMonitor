@@ -12,7 +12,7 @@ public static class PaceBaseline
 {
     // (?<![A-Za-z]) 防止吃掉单词内数字（如 "100dpi" 误判为 100 天窗口）
     private static readonly Regex Hours = new(
-        @"(?<![A-Za-z])(\d+(?:\.\d+)?)\s*(?:个?小时|hours?\b|hrs?\b|h\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(?<![A-Za-z])(\d+(?:\.\d+)?)(?:\s*[-–—]?\s*)(?:个?小时|hours?\b|hrs?\b|h\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex Days = new(
         @"(?<![A-Za-z])(\d+(?:\.\d+)?)\s*(?:天|日|days?\b|d\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex Week = new(@"周|week", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -33,15 +33,28 @@ public static class PaceBaseline
     }
 
     /// <summary>窗口已过去的比例（0~1）。缺重置时间返回 null（不画基准线）。
-    /// 标签推断失败时，按剩余时间归入最近的窗口档（5h / 7d / 30d），
-    /// 让「总使用量」这类无窗口关键词的标签也能有基准线。</summary>
-    public static double? Elapsed(string? label, DateTime? resetAt, DateTime now)
+    /// 标签推断失败时：若重置时间与订阅到期/续费时间一致，说明该配额随订阅账期
+    /// 重置（如 Kimi「总使用量」月度刷新），按 30 天窗口；否则按剩余时间归入最近的
+    /// 窗口档（5h / 7d / 30d）——剩余 6 天既可能是 7 天窗刚开始，也可能是 30 天窗
+    /// 快结束，单靠剩余时间无法区分，会错画基准线。</summary>
+    public static double? Elapsed(string? label, DateTime? resetAt, DateTime now,
+        DateTime? subscriptionExpireAt = null)
     {
         if (resetAt == null) return null;
         double remainingHours = (resetAt.Value - now).TotalHours;
-        var windowHours = WindowHours(label) ?? InferFromRemaining(remainingHours);
+        var windowHours = WindowHours(label)
+            ?? BillingCycleHours(resetAt.Value, subscriptionExpireAt)
+            ?? InferFromRemaining(remainingHours);
         if (windowHours == null) return null;
         return Math.Clamp(1 - remainingHours / windowHours.Value, 0, 1);
+    }
+
+    /// <summary>重置时间与订阅到期时间相差 ≤36 小时（页面解析精度不同，一个可能到
+    /// 00:00、另一个到当天某时刻）→ 该配额按订阅账期（月）重置，窗口 30 天。</summary>
+    private static double? BillingCycleHours(DateTime resetAt, DateTime? subscriptionExpireAt)
+    {
+        if (subscriptionExpireAt == null) return null;
+        return Math.Abs((resetAt - subscriptionExpireAt.Value).TotalHours) <= 36 ? 30 * 24 : null;
     }
 
     /// <summary>按剩余时间归入最近的配额窗口档；超出 30 天或已过期返回 null。</summary>

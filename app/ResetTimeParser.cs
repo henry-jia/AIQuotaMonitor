@@ -7,7 +7,8 @@ namespace AIQuotaMonitor;
 /// <summary>
 /// 把各供应商五花八门的重置时间文本解析为绝对时间，并按全局设置格式化展示。
 /// 支持的原文示例：「重置时间：16:33」「重置时间：2026-07-26 10:00」「07-23 14:44 后重置」
-/// 「2026-08-17 后重置」「Resets in 07-23 14:44」「3 天后重置」「2 小时 30 分后重置」等。
+/// 「2026-08-17 后重置」「Resets in 07-23 14:44」「3 天后重置」「2 小时 30 分后重置」
+/// 「5天11时56分钟后刷新」等。
 /// </summary>
 public static class ResetTimeParser
 {
@@ -26,7 +27,7 @@ public static class ResetTimeParser
     private static readonly Regex RelDays = new(
         @"(\d+)\s*(?:天|days?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex RelHours = new(
-        @"(\d+)\s*(?:个?小时|hours?\b|hrs?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(\d+)\s*(?:个?小时|时(?!间)|hours?\b|hrs?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex RelMinutes = new(
         @"(\d+)\s*(?:分钟|分|minutes?\b|mins?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex TimeOnly = new(
@@ -34,7 +35,7 @@ public static class ResetTimeParser
     private static readonly Regex TimeAmPm = new(
         @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})\s*(?<ampm>[APap][Mm])", RegexOptions.Compiled);
     private static readonly Regex LeadWords = new(
-        @"^\s*(?:重置(?:时间|日期)?|Resets?(?:\s+in)?)\s*[：:]?\s*",
+        @"^\s*(?:(?:重置|刷新)(?:时间|日期)?|Resets?(?:\s+in)?|Refresh(?:es)?(?:\s+in)?)\s*[：:]?\s*",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex LooksLikeFullDate = new(
         @"\d{4}|[A-Za-z]{3,}\s+\d{1,2}\b", RegexOptions.Compiled);

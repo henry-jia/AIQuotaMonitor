@@ -21,6 +21,26 @@ public static class Ui
         return fallback;
     }
 
+    /// <summary>
+    /// 解析小部件 Acrylic tint。旧版颜色选择器保存的 #RRGGBB 会变成全不透明，
+    /// 此处为这类值补回默认 alpha；显式的 #AARRGGBB 则保留用户已有透明度。
+    /// </summary>
+    public static WColor ParseAcrylicTint(string? text)
+    {
+        var fallback = (WColor)ColorConverter.ConvertFromString(AppConfig.DefaultBackgroundColor);
+        var color = ParseColor(text, fallback);
+        if (color.A == byte.MaxValue)
+            color.A = AppConfig.DefaultBackgroundTintAlpha;
+        return color;
+    }
+
+    /// <summary>把 Acrylic tint 规范化为包含 alpha 的 #AARRGGBB。</summary>
+    public static string AcrylicTintHex(string? text)
+    {
+        var color = ParseAcrylicTint(text);
+        return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
+
     public static SolidColorBrush Brush(string hex)
     {
         var b = new SolidColorBrush((WColor)System.Windows.Media.ColorConverter.ConvertFromString(hex));

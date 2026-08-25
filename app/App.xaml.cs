@@ -8,7 +8,7 @@ public partial class App : Application
     // 静态持有 Mutex：实例级字段会被 GC，锁释放即失去单实例保护
     private static System.Threading.Mutex? _singleInstance;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -58,6 +58,26 @@ public partial class App : Application
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             Shutdown();
+            return;
+        }
+
+        // 隔离 WebView2 profile 的认证持久化 smoke：不读取或修改真实账号 Cookie。
+        int sessionSmokeIndex = Array.IndexOf(e.Args, "--test-session-persistence");
+        if (sessionSmokeIndex >= 0 && sessionSmokeIndex + 1 < e.Args.Length)
+        {
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            bool success = await SessionPersistenceSmoke.RunAsync(e.Args[sessionSmokeIndex + 1]);
+            Shutdown(success ? 0 : 1);
+            return;
+        }
+
+        // 火山 Coding Plan 等价 DOM smoke：执行生产抓取脚本，不访问真实账号页面。
+        int volcDomSmokeIndex = Array.IndexOf(e.Args, "--test-volc-dom");
+        if (volcDomSmokeIndex >= 0 && volcDomSmokeIndex + 1 < e.Args.Length)
+        {
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            bool success = await VolcengineDomSmoke.RunAsync(e.Args[volcDomSmokeIndex + 1]);
+            Shutdown(success ? 0 : 1);
             return;
         }
 
@@ -132,9 +152,14 @@ public partial class App : Application
                 }
             }
         }
-        // 旧默认背景 #E8 几乎不透，Acrylic 看不出毛玻璃；用旧默认的配置迁移到新 tint
-        bool tintMigrated = config.BackgroundColor == "#E814141B";
-        if (tintMigrated) config.BackgroundColor = "#9914141B";
+        // 统一保存为带 alpha 的 tint：迁移旧默认值，也修复旧取色器产生的不透明 #RRGGBB。
+        bool usedFormerDefault = string.Equals(config.BackgroundColor, "#E814141B", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(config.BackgroundColor, "#9914141B", StringComparison.OrdinalIgnoreCase);
+        string normalizedTint = usedFormerDefault
+            ? AppConfig.DefaultBackgroundColor
+            : Ui.AcrylicTintHex(config.BackgroundColor);
+        bool tintMigrated = !string.Equals(config.BackgroundColor, normalizedTint, StringComparison.OrdinalIgnoreCase);
+        if (tintMigrated) config.BackgroundColor = normalizedTint;
         if (anyIdAssigned || tintMigrated) ConfigStore.Save(config);
         // 开机自启随设置同步；exe 移动目录后此处以当前路径自愈
         Ui.AutoStart.Sync(config.AutoStart);

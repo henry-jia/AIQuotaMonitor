@@ -51,6 +51,8 @@ public static class I18n
         ["app_title"] = "AI 配额监控",
         ["refresh_now"] = "立即刷新",
         ["topmost"] = "窗口置顶",
+        ["pin_top"] = "窗口置顶",
+        ["unpin_top"] = "取消置顶",
         ["layout_to_horizontal"] = "布局：切换为横向",
         ["layout_to_vertical"] = "布局：切换为纵向",
         ["settings"] = "设置…",
@@ -135,6 +137,9 @@ public static class I18n
         ["resets_in_hours"] = "{0} 小时后重置",
         ["resets_in_days_hours"] = "{0} 天 {1} 小时后重置",
         ["resets_in_days"] = "{0} 天后重置",
+        ["session_timer_starts_on_first_use"] = "暂无调用 · 首次调用后开始 5 小时计时",
+        ["cookie_save_failed"] = "登录信息无法安全保存（{0}）。本次登录可能无法跨应用重启保留。",
+        ["cookie_restore_failed"] = "已保存的登录信息无法恢复（{0}）。请重新登录；若持续发生，请检查本机用户配置或安全软件。",
 
         // ---------- 抓取引擎 ----------
         ["webview2_missing"] = "未检测到 WebView2 Runtime。\n\n请从微软官网下载安装「WebView2 Runtime 长青版（Evergreen）」：\nhttps://developer.microsoft.com/zh-cn/microsoft-edge/webview2/\n\n安装完成后重启本程序即可。",
@@ -283,6 +288,8 @@ public static class I18n
         ["app_title"] = "AI Quota Monitor",
         ["refresh_now"] = "Refresh now",
         ["topmost"] = "Always on top",
+        ["pin_top"] = "Pin on top",
+        ["unpin_top"] = "Unpin from top",
         ["layout_to_horizontal"] = "Layout: switch to horizontal",
         ["layout_to_vertical"] = "Layout: switch to vertical",
         ["settings"] = "Settings…",
@@ -367,6 +374,9 @@ public static class I18n
         ["resets_in_hours"] = "resets in {0}h",
         ["resets_in_days_hours"] = "resets in {0}d {1}h",
         ["resets_in_days"] = "resets in {0}d",
+        ["session_timer_starts_on_first_use"] = "No calls yet · the 5h timer starts on first use",
+        ["cookie_save_failed"] = "Sign-in data could not be saved securely ({0}). This login may not survive an app restart.",
+        ["cookie_restore_failed"] = "Saved sign-in data could not be restored ({0}). Sign in again; if this repeats, check the local user profile or security software.",
 
         // ---------- Scrape engine ----------
         ["webview2_missing"] = "WebView2 Runtime not found.\n\nPlease install the WebView2 Runtime (Evergreen) from Microsoft:\nhttps://developer.microsoft.com/en-us/microsoft-edge/webview2/\n\nRestart this app after installation.",

@@ -6,8 +6,8 @@
         WindowStyle="None" Background="#14141B"
         SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False">
     <!-- Win11 上运行时切换为 Acrylic 毛玻璃（见 Backdrop.cs）；圆角与 DWM 的 8px 对齐 -->
-    <Border x:Name="Root" CornerRadius="8" Background="#9914141B"
-            BorderBrush="#26FFFFFF" BorderThickness="1"
+    <Border x:Name="Root" CornerRadius="8" Background="#6614141B"
+            BorderBrush="#33FFFFFF" BorderThickness="1" SnapsToDevicePixels="True"
             MouseLeftButtonDown="Root_MouseLeftButtonDown"
             MouseWheel="Root_MouseWheel">
         <Border.ContextMenu>
@@ -28,34 +28,49 @@
                 <MenuItem x:Name="MenuExit" Header="Exit" Click="MenuExit_Click"/>
             </ContextMenu>
         </Border.ContextMenu>
-        <StackPanel Margin="16,12,16,14">
-            <Grid Margin="0,0,0,2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <!-- 左側可壓縮：窄窗口時标题省略号，避免与右侧按钮重叠 -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
-                    <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="10.5"
-                               Margin="8,0,0,0" Visibility="Collapsed"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="ZoomResetButton" Style="{StaticResource IconButtonStyle}" Content="100%"
-                            Width="Auto" Padding="7,0" FontSize="10.5" ToolTip="UI zoom" Margin="4,0,0,0" Click="ZoomReset_Click"/>
-                    <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="&#xE769;"
-                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Pause scraping"
-                            Margin="4,0,0,0" Click="PauseButton_Click"/>
-                    <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;"
-                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Refresh now"
-                            Margin="4,0,0,0" Click="RefreshButton_Click"/>
-                    <Button x:Name="HideButton" Style="{StaticResource IconButtonStyle}" Content="&#xE8BB;"
-                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Hide window (tray icon stays)"
-                            Margin="4,0,0,0" Click="HideButton_Click"/>
-                </StackPanel>
-            </Grid>
-            <StackPanel x:Name="CardsPanel" Margin="0,6,0,0"/>
-        </StackPanel>
+        <Grid>
+            <!-- Acrylic 由 DWM 负责模糊；这一层只模拟玻璃朝上的微弱反光，不截获输入。 -->
+            <Border CornerRadius="7" IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#10FFFFFF" Offset="0"/>
+                        <GradientStop Color="#05FFFFFF" Offset="0.34"/>
+                        <GradientStop Color="#00000000" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <StackPanel Margin="16,12,16,14">
+                <Grid Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- 左側可壓縮：窄窗口時标题省略号，避免与右侧按钮重叠 -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="10.5"
+                                   Margin="8,0,0,0" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="PinButton" Style="{StaticResource IconButtonStyle}" Content="&#xE718;"
+                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Pin on top"
+                                Margin="4,0,0,0" Click="PinButton_Click"/>
+                        <Button x:Name="ZoomResetButton" Style="{StaticResource IconButtonStyle}" Content="100%"
+                                Width="Auto" Padding="7,0" FontSize="10.5" ToolTip="UI zoom" Margin="4,0,0,0" Click="ZoomReset_Click"/>
+                        <Button x:Name="PauseButton" Style="{StaticResource IconButtonStyle}" Content="&#xE769;"
+                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Pause scraping"
+                                Margin="4,0,0,0" Click="PauseButton_Click"/>
+                        <Button x:Name="RefreshButton" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;"
+                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Refresh now"
+                                Margin="4,0,0,0" Click="RefreshButton_Click"/>
+                        <Button x:Name="HideButton" Style="{StaticResource IconButtonStyle}" Content="&#xE8BB;"
+                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Hide window (tray icon stays)"
+                                Margin="4,0,0,0" Click="HideButton_Click"/>
+                    </StackPanel>
+                </Grid>
+                <StackPanel x:Name="CardsPanel" Margin="0,6,0,0"/>
+            </StackPanel>
+        </Grid>
     </Border>
 </Window>

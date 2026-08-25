@@ -210,7 +210,7 @@ public partial class ServiceCard : UserControl
         if (result.StaleError != null || result.StaleFromDisk)
             RowsPanel.Children.Add(BuildStaleWarning(result));
         foreach (var rule in result.Rules)
-            RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg), rule.Label));
+            RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg, result.Subscription?.ExpireAt?.LocalDateTime), rule.Label));
     }
 
     /// <summary>陈旧数据警告行：刷新失败显示「刷新失败——显示 HH:mm 的数据」（tooltip 完整错误）；
@@ -295,11 +295,13 @@ public partial class ServiceCard : UserControl
         if (_service != null) RequestViewPage?.Invoke(_service);
     }
 
-    private static FrameworkElement BuildRow(RuleResult rule, ResolvedTheme theme, AppConfig cfg)
+    private static FrameworkElement BuildRow(RuleResult rule, ResolvedTheme theme, AppConfig cfg,
+        DateTime? subscriptionExpireAt = null)
     {
         double pct = Math.Clamp(rule.Percent ?? 0, 0, 100);
-        // 时间基准：窗口按时间均匀消耗此刻应到的位置（无标签窗口信息或无重置时间时为 null）
-        double? elapsed = PaceBaseline.Elapsed(rule.Label, rule.ResetAt, DateTime.Now);
+        // 时间基准：窗口按时间均匀消耗此刻应到的位置（无标签窗口信息或无重置时间时为 null；
+        // 订阅到期时间用于识别随账期重置的月度配额，如 Kimi「总使用量」）
+        double? elapsed = PaceBaseline.Elapsed(rule.Label, rule.ResetAt, DateTime.Now, subscriptionExpireAt);
 
         // 状态色：≥90% 告警 > 超出基准 > 接近基准（10 个百分点以内）> 正常；无基准时 ≥60% 视为接近
         Color barColor;

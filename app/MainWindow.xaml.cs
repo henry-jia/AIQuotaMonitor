@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private AppConfig _config;
     private ScrapeEngine? _engine;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private readonly CancellationTokenSource _shutdownCts = new();
     private readonly Dictionary<ServiceConfig, ServiceScrapeResult> _results = new();
     private readonly Dictionary<ServiceConfig, DateTime> _nextDue = new();
     /// <summary>每个服务最后一次成功抓取结果（key = 服务稳定 id），刷新失败时的回退数据源。</summary>
@@ -94,12 +95,12 @@ public partial class MainWindow : Window
     private void ApplyConfig()
     {
         Topmost = _config.Topmost;
-        Root.Background = new SolidColorBrush(Ui.ParseColor(_config.BackgroundColor,
-            (Color)ColorConverter.ConvertFromString("#9914141B")));
+        Root.Background = new SolidColorBrush(Ui.ParseAcrylicTint(_config.BackgroundColor));
         Root.Opacity = _config.Opacity;
         ApplyScale();
         MenuTopmost.IsChecked = _config.Topmost;
         if (_trayTopmostItem != null) _trayTopmostItem.Checked = _config.Topmost;
+        UpdatePinVisuals();
         MenuLayout.Header = _config.IsHorizontal ? I18n.T("layout_to_vertical") : I18n.T("layout_to_horizontal");
         CardsPanel.Orientation = _config.IsHorizontal ? Orientation.Horizontal : Orientation.Vertical;
         RebuildCards();
@@ -350,6 +351,7 @@ public partial class MainWindow : Window
 
     private async Task RefreshAllAsync()
     {
+        if (_exiting) return;
         foreach (var svc in _config.Services.Where(s => s.Enabled))
             _nextDue[svc] = DateTime.MinValue;
         // 用户主动点的刷新必须生效：等待刷新锁，不允许被静默丢弃
@@ -360,9 +362,30 @@ public partial class MainWindow : Window
     /// waitForLock=true 时等待刷新锁（登录窗口关闭等场景不允许丢失本次刷新）。</summary>
     private async Task RefreshDueAsync(bool waitForLock = false)
     {
-        if (_testMode) return;
-        if (waitForLock) await _refreshLock.WaitAsync();
-        else if (!await _refreshLock.WaitAsync(0)) return;
+        if (_testMode || _exiting) return;
+        bool lockHeld = false;
+        try
+        {
+            if (waitForLock)
+            {
+                await _refreshLock.WaitAsync(_shutdownCts.Token);
+                lockHeld = true;
+            }
+            else
+            {
+                lockHeld = await _refreshLock.WaitAsync(0, _shutdownCts.Token);
+                if (!lockHeld) return;
+            }
+        }
+        catch (OperationCanceledException) when (_exiting)
+        {
+            return;
+        }
+        if (_exiting)
+        {
+            _refreshLock.Release();
+            return;
+        }
         SetBusy(true);
         try
         {
@@ -381,7 +404,12 @@ public partial class MainWindow : Window
                 ServiceScrapeResult res;
                 try
                 {
-                    res = await Engine.ScrapeAsync(svc, fetchSub, timeoutSeconds: _config.ScrapeTimeoutSeconds);
+                    res = await Engine.ScrapeAsync(svc, fetchSub,
+                        timeoutSeconds: _config.ScrapeTimeoutSeconds, ct: _shutdownCts.Token);
+                }
+                catch (OperationCanceledException) when (_exiting)
+                {
+                    return;
                 }
                 catch (Exception ex)
                 {
@@ -619,18 +647,44 @@ public partial class MainWindow : Window
         try
         {
             await Engine.EnsureInitializedAsync();
+            if (_exiting) return;
             var login = new LoginWindow(Engine.Env!, svc.Url, svc.Name, viewOnly) { Owner = this };
             login.Closed += async (s, e) =>
             {
-                _nextDue[svc] = DateTime.MinValue;
-                await RefreshDueAsync(waitForLock: true);
+                if (_exiting) return;
+                try
+                {
+                    // 登录页关闭时先落盘；即使随后因官网改版导致抓取失败，登录态也不会随进程退出丢失。
+                    var saved = await Engine.SaveSessionAsync();
+                    if (!saved.Success && !_exiting)
+                    {
+                        System.Windows.MessageBox.Show(this,
+                            I18n.T("cookie_save_failed", saved.ErrorCode ?? "Unknown"), "AIQuotaMonitor",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                    if (_exiting) return;
+                    _nextDue[svc] = DateTime.MinValue;
+                    await RefreshDueAsync(waitForLock: true);
+                }
+                catch (OperationCanceledException) when (_exiting) { }
+                catch (Exception ex)
+                {
+                    if (!_exiting)
+                    {
+                        System.Windows.MessageBox.Show(this, I18n.T("cookie_save_failed", ex.GetType().Name),
+                            "AIQuotaMonitor", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
             };
             login.Show();
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, I18n.T("open_login_failed") + ex.Message, "AIQuotaMonitor",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (!_exiting)
+            {
+                System.Windows.MessageBox.Show(this, I18n.T("open_login_failed") + ex.Message, "AIQuotaMonitor",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
     }
 
@@ -745,18 +799,71 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private void ExitApp()
+    private async void ExitApp()
     {
+        if (_exiting) return;
         _exiting = true;
+        _timer?.Stop();
+        _uiTimer?.Stop();
+        _shutdownCts.Cancel();
         SavePosition();
-        if (_tray != null)
+        if (_tray != null) _tray.Visible = false;
+        try
         {
-            _tray.Visible = false;
-            _tray.Dispose();
+            // WebView2 个别 API 不接受 CancellationToken；排空/保存各设上限，确保 finally 必达。
+            bool refreshDrained;
+            using (var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+            {
+                try
+                {
+                    await _refreshLock.WaitAsync(drainCts.Token);
+                    _refreshLock.Release();
+                    refreshDrained = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    refreshDrained = false;
+                    System.Diagnostics.Trace.TraceWarning("[MainWindow] Refresh drain timed out on exit.");
+                }
+            }
+
+            if (refreshDrained && _engine != null)
+            {
+                var saveTask = _engine.SaveSessionAsync();
+                if (await CompletesWithinAsync(saveTask, TimeSpan.FromSeconds(5)))
+                {
+                    var saved = await saveTask;
+                    if (!saved.Success)
+                        System.Diagnostics.Trace.TraceWarning("[MainWindow] Final session save failed: {0}", saved.ErrorCode);
+                }
+                else
+                {
+                    ObserveLateFailure(saveTask);
+                    System.Diagnostics.Trace.TraceWarning("[MainWindow] Final session save timed out on exit.");
+                }
+            }
         }
-        _engine?.Dispose();
-        System.Windows.Application.Current.Shutdown();
+        catch (Exception ex)
+        {
+            // 退出必须继续；只记录异常类型，绝不记录认证资料。
+            System.Diagnostics.Trace.TraceError("[MainWindow] Session save on exit failed: {0}", ex.GetType().Name);
+        }
+        finally
+        {
+            _tray?.Dispose();
+            _engine?.Dispose();
+            _shutdownCts.Dispose();
+            System.Windows.Application.Current.Shutdown();
+        }
     }
+
+    internal static async Task<bool> CompletesWithinAsync(Task task, TimeSpan timeout) =>
+        await Task.WhenAny(task, Task.Delay(timeout)) == task;
+
+    private static void ObserveLateFailure(Task task) =>
+        _ = task.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     // ---------- 启动 ----------
 
@@ -773,6 +880,11 @@ public partial class MainWindow : Window
             return;
         }
         await RefreshAllAsync();
+        if (!_exiting && Engine.SessionRestoreErrorCode is { } restoreError)
+        {
+            System.Windows.MessageBox.Show(this, I18n.T("cookie_restore_failed", restoreError),
+                "AIQuotaMonitor", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     // ---------- 菜单与标题按钮 ----------
@@ -787,12 +899,30 @@ public partial class MainWindow : Window
 
     private void MenuRefresh_Click(object sender, RoutedEventArgs e) => _ = RefreshAllAsync();
 
-    private void MenuTopmost_Click(object sender, RoutedEventArgs e)
+    private void MenuTopmost_Click(object sender, RoutedEventArgs e) => SetTopmost(MenuTopmost.IsChecked);
+
+    private void PinButton_Click(object sender, RoutedEventArgs e) => SetTopmost(!_config.Topmost);
+
+    /// <summary>置顶状态统一入口：配置、窗口、右键菜单、托盘菜单、标题栏钉按钮全部同步并持久化。</summary>
+    private void SetTopmost(bool on)
     {
-        _config.Topmost = MenuTopmost.IsChecked;
-        Topmost = _config.Topmost;
-        if (_trayTopmostItem != null) _trayTopmostItem.Checked = _config.Topmost;
+        _config.Topmost = on;
+        Topmost = on;
+        MenuTopmost.IsChecked = on;
+        if (_trayTopmostItem != null) _trayTopmostItem.Checked = on;
+        UpdatePinVisuals();
         ConfigStore.Save(_config);
+    }
+
+    /// <summary>钉按钮外观随置顶状态同步：置顶时实心图钉 + 主题强调色，否则空心图钉。</summary>
+    private void UpdatePinVisuals()
+    {
+        bool pinned = _config.Topmost;
+        PinButton.Content = pinned ? "\uE842" : "\uE718"; // PinnedFill / Pin
+        PinButton.Foreground = pinned
+            ? new SolidColorBrush(ColorTheme.Resolve(_config).Accent)
+            : Ui.Brush("#B9B9C4"); // 与 IconButtonStyle 默认前景一致
+        PinButton.ToolTip = I18n.T(pinned ? "unpin_top" : "pin_top");
     }
 
     private void MenuLayout_Click(object sender, RoutedEventArgs e)
@@ -853,6 +983,7 @@ public partial class MainWindow : Window
         ZoomResetButton.ToolTip = I18n.T("zoom_reset_tip");
         HideButton.ToolTip = I18n.T("hide_window_tray");
         UpdatePauseVisuals();
+        UpdatePinVisuals();
         UpdateButtonStates();
 
         if (_tray != null) _tray.Text = I18n.T("app_title");
@@ -956,10 +1087,8 @@ public partial class MainWindow : Window
         };
         _trayTopmostItem.CheckedChanged += (s, e) =>
         {
-            _config.Topmost = _trayTopmostItem.Checked;
-            MenuTopmost.IsChecked = _config.Topmost;
-            Topmost = _config.Topmost;
-            ConfigStore.Save(_config);
+            if (_trayTopmostItem.Checked != _config.Topmost)
+                Dispatcher.Invoke(() => SetTopmost(_trayTopmostItem.Checked));
         };
         menu.Items.Add(_trayTopmostItem);
 

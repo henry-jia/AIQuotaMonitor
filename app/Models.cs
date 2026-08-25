@@ -21,6 +21,9 @@ public abstract class ObservableObject : INotifyPropertyChanged
 /// <summary>应用配置（持久化到 config.json，camelCase）。</summary>
 public class AppConfig : ObservableObject
 {
+    public const byte DefaultBackgroundTintAlpha = 0x66;
+    public const string DefaultBackgroundColor = "#6614141B";
+
     private IList<ServiceConfig> _services = new List<ServiceConfig>();
     public IList<ServiceConfig> Services { get => _services; set => Set(ref _services, value); }
 
@@ -61,7 +64,7 @@ public class AppConfig : ObservableObject
     public bool ScrapingPaused { get => _scrapingPaused; set => Set(ref _scrapingPaused, value); }
 
     /// <summary>小部件背景色（hex，默认深色；Acrylic 下作为 tint，alpha 决定毛玻璃透出程度）。</summary>
-    private string _backgroundColor = "#9914141B";
+    private string _backgroundColor = DefaultBackgroundColor;
     public string BackgroundColor { get => _backgroundColor; set => Set(ref _backgroundColor, value); }
 
     /// <summary>界面缩放倍数（滚轮调整，1.0 = 100%）。</summary>
@@ -188,10 +191,16 @@ public class QuotaRule : ObservableObject
     public const string DefaultPercentPattern = @"(\d+(?:\.\d+)?)\s*%";
     public const string DefaultFractionPattern = @"(\d+)\s*/\s*(\d+)";
     /// <summary>自动定位模式下未填重置正则时使用的默认识别
-    /// （「重置时间：…」「…后重置」「将于…重置」「2026-07-23 15:42:00 重置」「Resets in …」「Resets Jul 29…」）。</summary>
+    /// （「重置时间：…」「…后重置/刷新」「将于…重置」「2026-07-23 15:42:00 重置」
+    /// 「Resets in …」「Refreshes in …」）。</summary>
     public const string DefaultResetPattern =
-        @"(?:重置(?:时间|日期)?[：:]|Resets?(?:\s+in)?|将于)\s*[^\n]{1,40}|[^\n]{1,30}后重置" +
-        @"|\d{4}\s*[-/年.]\s*\d{1,2}\s*[-/月.]\s*\d{1,2}\s*日?[^\n]{0,20}?重置";
+        @"(?:(?:重置|刷新)(?:时间|日期)?[：:]|将于)\s*[^\n]{1,40}" +
+        @"|Resets?\s+(?:in\s+)?(?:\d|[A-Za-z]{3})[^\n]{0,35}" +
+        @"|Refresh(?:es)?\s+in\s+(?:\d|[A-Za-z]{3})[^\n]{0,35}" +
+        @"|(?:\d+\s*(?:天|个?小时|时(?!间)|分钟|分)\s*){1,4}后(?:重置|刷新)" +
+        @"|\d{1,2}\s*[-/月.]\s*\d{1,2}\s*日?(?:\s+\d{1,2}\s*[:：]\s*\d{2})?\s*后(?:重置|刷新)" +
+        @"|\d{4}\s*[-/年.]\s*\d{1,2}\s*[-/月.]\s*\d{1,2}\s*日?[^\n]{0,20}?(?:重置|刷新)" +
+        @"|当前时段暂无调用";
 
     private string _label = "";
     public string Label { get => _label; set => Set(ref _label, value); }

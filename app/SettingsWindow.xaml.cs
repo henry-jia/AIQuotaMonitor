@@ -447,20 +447,19 @@ public partial class SettingsWindow : Window
     /// <summary>背景色：点击色板打开取色对话框（含屏幕取色器），即时预览。</summary>
     private void BgSwatch_Click(object sender, RoutedEventArgs e)
     {
-        var current = Ui.ParseColor(_working.BackgroundColor,
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#9914141B"));
+        var current = Ui.ParseAcrylicTint(_working.BackgroundColor);
         var dlg = new ColorPickerDialog(current) { Owner = this };
         if (dlg.ShowDialog() != true || dlg.SelectedColor is not { } picked) return;
-        _working.BackgroundColor = ColorTheme.Hex(picked);
+        picked.A = AppConfig.DefaultBackgroundTintAlpha;
+        _working.BackgroundColor = $"#{picked.A:X2}{picked.R:X2}{picked.G:X2}{picked.B:X2}";
         RefreshBgSwatch();
     }
 
     private void RefreshBgSwatch()
     {
-        var c = Ui.ParseColor(_working.BackgroundColor,
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#9914141B"));
+        var c = Ui.ParseAcrylicTint(_working.BackgroundColor);
         BgSwatch.Background = new System.Windows.Media.SolidColorBrush(c);
-        BgHexText.Text = _working.BackgroundColor;
+        BgHexText.Text = Ui.AcrylicTintHex(_working.BackgroundColor);
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
