@@ -15,6 +15,9 @@ I18n.Initialize(I18n.LangEn);
 CheckReset("5天11时56分钟后刷新", now.AddDays(5).AddHours(11).AddMinutes(56));
 CheckReset("28天11时56分钟后刷新", now.AddDays(28).AddHours(11).AddMinutes(56));
 CheckReset("Refreshes in 2 hours 30 mins", now.AddHours(2).AddMinutes(30));
+CheckReset("Resets in 4d 22h", now.AddDays(4).AddHours(22));
+CheckReset("Resets in 4d", now.AddDays(4));
+CheckReset("Resets in 22h 30m", now.AddHours(22).AddMinutes(30));
 CheckReset("3 天后重置", now.AddDays(3));
 CheckReset("2026-09-22 23:59 刷新", new DateTime(2026, 9, 22, 23, 59, 0, DateTimeKind.Local));
 

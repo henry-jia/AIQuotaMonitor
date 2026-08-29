@@ -8,7 +8,7 @@ namespace AIQuotaMonitor;
 /// 把各供应商五花八门的重置时间文本解析为绝对时间，并按全局设置格式化展示。
 /// 支持的原文示例：「重置时间：16:33」「重置时间：2026-07-26 10:00」「07-23 14:44 后重置」
 /// 「2026-08-17 后重置」「Resets in 07-23 14:44」「3 天后重置」「2 小时 30 分后重置」
-/// 「5天11时56分钟后刷新」等。
+/// 「5天11时56分钟后刷新」「Resets in 4d 22h」（单字母缩写，ChatGPT Usage 页）等。
 /// </summary>
 public static class ResetTimeParser
 {
@@ -24,12 +24,14 @@ public static class ResetTimeParser
     private static readonly Regex MonthDay = new(
         @"(?<mo>\d{1,2})\s*[-/月.]\s*(?<d>\d{1,2})\s*日",
         RegexOptions.Compiled);
+    // 单字母紧凑缩写（d/h/m）用于 ChatGPT Usage 页等「Resets in 4d 22h」文案；
+    // \b 防止误吃单词内的 d/h/m（如 "4done" 不匹配）
     private static readonly Regex RelDays = new(
-        @"(\d+)\s*(?:天|days?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(\d+)\s*(?:天|days?\b|d\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex RelHours = new(
-        @"(\d+)\s*(?:个?小时|时(?!间)|hours?\b|hrs?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(\d+)\s*(?:个?小时|时(?!间)|hours?\b|hrs?\b|h\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex RelMinutes = new(
-        @"(\d+)\s*(?:分钟|分|minutes?\b|mins?\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        @"(\d+)\s*(?:分钟|分|minutes?\b|mins?\b|m\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex TimeOnly = new(
         @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})", RegexOptions.Compiled);
     private static readonly Regex TimeAmPm = new(
