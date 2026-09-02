@@ -96,6 +96,37 @@ ScrapeEngine.ApplyFiveHourIdleDetail(
 if (idleWeekly.Detail != null)
     failures.Add("The 5-hour idle hint leaked onto a non-5-hour quota.");
 
+// 「剩余」语义自动换算：ChatGPT 2026-09 起 Usage 页显示「25% left」，需换算为已用 75%
+void CheckPercent(string payload, bool invert, double expected, string note)
+{
+    checks++;
+    var rr = new RuleResult();
+    ScrapeEngine.ParseRulePayload(rr, new QuotaRule { Label = "Weekly limit", Invert = invert }, payload, out _);
+    if (rr.Error != null || rr.Percent is not { } pct || Math.Abs(pct - expected) > 0.001)
+        failures.Add($"Remaining-percent conversion wrong ({note}): got {rr.Error ?? rr.Percent?.ToString() ?? "null"}, expected {expected}");
+}
+
+CheckPercent("""{"ok":true,"groups":["25"],"text":"Weekly limit\nResets in 5d 20h\n25% left","mtext":"25% left","reset":"Resets in 5d 20h"}""", false, 75, "ChatGPT '25% left' must convert to 75% used");
+CheckPercent("""{"ok":true,"groups":["25"],"text":"Weekly limit\n25% left","mtext":"25% left"}""", true, 75, "Explicit Invert must not double-invert a 'left' value");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly limit\n42% used","mtext":"42% used"}""", false, 42, "A used-style value must stay as-is");
+CheckPercent("""{"ok":true,"groups":["73"],"text":"每周使用额度\n剩余 73%","mtext":"剩余 73%"}""", false, 27, "Chinese 剩余 must convert");
+CheckPercent("""{"ok":true,"groups":["73"],"text":"Remaining: 73%","mtext":"Remaining: 73%"}""", false, 27, "'Remaining: 73%' must convert");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly limit\n42%\nCredits\n0 credits left","mtext":"42%"}""", false, 42, "A non-adjacent 'left' must not convert");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly limit 42% · 剩余 9% of credits","mtext":"42%"}""", false, 42, "A remaining label on a different number must not convert");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly limit\n42% used","mtext":"42% used"}""", true, 58, "Manual Invert must keep working without keywords");
+CheckPercent("""{"ok":true,"groups":["25"],"text":"Weekly limit\nResets in 5d 20h\n25% left"}""", false, 75, "Selector-mode (no mtext) must detect '% left' in container text");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly usage\n3 hours left\n42%"}""", false, 42, "A reset countdown 'hours left' above the value must not convert (selector mode)");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly usage\n2 days remaining\n42%"}""", false, 42, "A reset countdown 'days remaining' must not convert (selector mode)");
+CheckPercent("""{"ok":true,"groups":["42"],"text":"Weekly usage\n3 hours left\n42%","mtext":"42%"}""", false, 42, "Element text wins over container text when both exist");
+
+checks++;
+var fracRr = new RuleResult();
+ScrapeEngine.ParseRulePayload(fracRr,
+    new QuotaRule { Label = "7 天用量", Type = QuotaRule.TypeFraction, Pattern = QuotaRule.DefaultFractionPattern },
+    """{"ok":true,"groups":["3","5"],"text":"3 / 5 left","mtext":"3 / 5 left"}""", out _);
+if (fracRr.Percent != 60)
+    failures.Add("Fraction-type quotas must not be affected by remaining-word detection.");
+
 checks++;
 if (!CookieStore.ShouldRestore(true, now.AddDays(-30), now) ||
     CookieStore.ShouldRestore(false, now.AddSeconds(-1), now) ||

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -654,7 +655,7 @@ public sealed class ScrapeEngine
             if (!container) return JSON.stringify({ ok:false, err:"no_match", arg:labels.join(" / "), text:(anchor.innerText||"").substring(0,600) });
             // 3) 容器内可能有多个数字（如进度条轴刻度 0% 50% 90% 100% 先于真实数值渲染），
             //    取「自身文本匹配正则且字号最大」的元素；无元素级匹配则回退容器整体匹配
-            var m = null, bestSize = -1, bestLen = 1e15, matchCount = 0;
+            var m = null, bestSize = -1, bestLen = 1e15, matchCount = 0, bestText = "";
             var els = container.querySelectorAll("*");
             for (var i = 0; i < els.length; i++) {
               var et = (els[i].innerText || "").trim();
@@ -664,7 +665,7 @@ public sealed class ScrapeEngine
               matchCount++;
               var fs = 0;
               try { fs = parseFloat(getComputedStyle(els[i]).fontSize) || 0; } catch (e) {}
-              if (fs > bestSize || (fs === bestSize && et.length < bestLen)) { m = mm; bestSize = fs; bestLen = et.length; }
+              if (fs > bestSize || (fs === bestSize && et.length < bestLen)) { m = mm; bestSize = fs; bestLen = et.length; bestText = et; }
             }
             if (!m) m = text.match(re);
             if (!m) return JSON.stringify({ ok:false, err:"no_match", arg:labels.join(" / "), text:text.substring(0,600) });
@@ -693,7 +694,7 @@ public sealed class ScrapeEngine
               if (rm) { reset = (rm.length > 1 && rm[1] ? rm[1] : rm[0]).trim(); rfound = true; break; }
               rnode = parentOf(rnode);
             }
-            return JSON.stringify({ ok:true, groups:g, text:text.substring(0,600), reset:reset, quality:quality });
+            return JSON.stringify({ ok:true, groups:g, text:text.substring(0,600), mtext:(bestText||"").substring(0,120), reset:reset, quality:quality });
           } catch (e) { return JSON.stringify({ ok:false, err:"script_exception", arg:String(e && e.message || e) }); }
         })()
         """;
@@ -774,8 +775,8 @@ public sealed class ScrapeEngine
         _ => code,
     };
 
-    /// <summary>解析两种模式共用的 JS 返回（ok/groups/text/reset），算出百分比与明细。</summary>
-    private static void ParseRulePayload(RuleResult rr, QuotaRule rule, string payload, out string? reset)
+    /// <summary>解析两种模式共用的 JS 返回（ok/groups/text/mtext/reset），算出百分比与明细。</summary>
+    internal static void ParseRulePayload(RuleResult rr, QuotaRule rule, string payload, out string? reset)
     {
         reset = null;
         try
@@ -783,6 +784,7 @@ public sealed class ScrapeEngine
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
             if (root.TryGetProperty("text", out var t)) rr.RawText = t.GetString();
+            string? mtext = root.TryGetProperty("mtext", out var mt) ? mt.GetString() : null;
             if (root.TryGetProperty("reset", out var rs)) reset = rs.GetString();
             if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
             {
@@ -818,7 +820,9 @@ public sealed class ScrapeEngine
                     rr.Error = I18n.T("percent_parse_failed", groups.Count > 0 ? groups[0] : I18n.T("no_capture_group"));
                     return;
                 }
-                rr.Percent = rule.Invert ? 100 - p : p; // Invert：页面显示的是「剩余」百分比
+                // 页面写明「剩余」（25% left / 剩余 73%）时自动换算为已用；与手动 Invert 只做一次换算
+                bool remaining = rule.Invert || LooksLikeRemainingPercent(mtext, rr.RawText, p);
+                rr.Percent = remaining ? 100 - p : p;
             }
         }
         catch (Exception ex)
@@ -875,4 +879,27 @@ public sealed class ScrapeEngine
     private static bool TryNum(string s, out double value) =>
         double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
         double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+
+    /// <summary>「剩余/left/remaining/available」紧邻百分比字样（ChatGPT 2026-09 起 Usage 页显示「25% left」）。
+    /// 只认与解析出的数值相同的那个数字；关键词前若是时间单位（如「3 hours left」）则视为重置倒计时而非剩余语义。</summary>
+    private static readonly Regex RemainingPercentRegex = new(
+        @"(?<!(?:hours?|days?|minutes?|mins?|seconds?|secs?|weeks?|months?|hrs?)\s*)" +
+        @"(?:剩[余餘]|left|remaining|avail(?:able)?)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*[%％]" +
+        @"|(\d+(?:\.\d+)?)\s*[%％]\s*(?:剩[余餘]|left|remaining|avail(?:able)?)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>判断页面数值是否为「剩余」百分比。closest = 数值所在元素的文本（自动定位模式），
+    /// broader = 容器整体文本（选择器模式 / 元素级匹配回退时使用）。有 closest 只看 closest——
+    /// 容器文本可能混入重置倒计时等其他文案；fraction 类型不适用。</summary>
+    internal static bool LooksLikeRemainingPercent(string? closest, string? broader, double percent)
+    {
+        var source = !string.IsNullOrEmpty(closest) ? closest : broader;
+        if (string.IsNullOrEmpty(source)) return false;
+        foreach (Match m in RemainingPercentRegex.Matches(source))
+        {
+            var g = m.Groups[1].Success ? m.Groups[1] : m.Groups[2];
+            if (TryNum(g.Value, out double n) && Math.Abs(n - percent) < 0.001) return true;
+        }
+        return false;
+    }
 }

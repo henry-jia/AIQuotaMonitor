@@ -1,5 +1,12 @@
 # Change Log
 
+## [20260902] Auto-convert remaining-labeled quota values to used
+- **類型**：Bugfix
+- **影響範圍**：quota parsing (percent type), auto-extract script payload, settings tooltips, regression tests, documentation
+- **內容**：ChatGPT's Usage page switched from "X% used" to "X% left"; the scraper now detects remaining wording (`left`/`remaining`/`剩余`/`avail`) adjacent to the parsed percent and converts it to used (100 − x). The manual Invert toggle combines as at most one conversion (OR), never double. Selector-mode rules fall back to the container text. Fraction-type rules are unaffected.
+- **關聯文件**：`README.md`, `README.en.md`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Claude
+
 ## [20260825] Release v1.5.0
 - **類型**：Feature
 - **影響範圍**：desktop UI, quota parsing, WebView2 session persistence, shutdown lifecycle, regression tests, release documentation

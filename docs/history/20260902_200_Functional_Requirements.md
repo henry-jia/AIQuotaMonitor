@@ -1,10 +1,5 @@
 # Functional Requirements
 
-## Quota value semantics
-
-- When a quota value is explicitly labeled as remaining (`25% left`, `剩余 73%`, `Remaining: 73%`), the monitor shall convert it to the used percent (100 − value) automatically at parse time.
-- The manual "value is remaining percent" toggle shall remain available for unlabeled remaining values and shall combine with automatic detection into at most one conversion, never two.
-
 ## Quota reset timing
 
 - The monitor shall extract both reset and refresh terminology from quota rows, including compact Chinese durations such as `5天11时56分钟后刷新`.

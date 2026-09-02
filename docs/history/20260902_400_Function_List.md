@@ -4,7 +4,6 @@
 
 - Automatic quota-row location across the main document, same-origin frames, and open shadow roots.
 - Percentage/fraction extraction with reset or refresh countdown recognition.
-- Automatic remaining-to-used conversion for values explicitly labeled `left`/`remaining`/`剩余` (ChatGPT-style `25% left` rows).
 - Volcengine Coding Plan support for current-session, weekly, and monthly refresh states.
 - Shared idle-state hint for zero-usage 5-hour windows that have not started a reset timer.
 - Configurable countdown versus exact-date rendering.
