@@ -2,6 +2,7 @@
 bin/
 obj/
 publish/
+publish_stage/
 *.user
 
 # 运行时生成（exe 同目录配置 / WebView2 缓存）
