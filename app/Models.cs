@@ -158,6 +158,11 @@ public class ServiceConfig : ObservableObject
     private bool _paused;
     public bool Paused { get => _paused; set => Set(ref _paused, value); }
 
+    /// <summary>独立会话（同一供应商多账号）：开启后该服务使用独立的 WebView2 profile
+    /// （独立 Cookie/登录态，需单独登录一次）；关闭则共享默认 profile（同域名只需登录一次）。</summary>
+    private bool _isolatedSession;
+    public bool IsolatedSession { get => _isolatedSession; set => Set(ref _isolatedSession, value); }
+
     /// <summary>页面加载完成后的额外等待秒数（SPA 异步渲染）。上限 120s，避免极端值长时间占用抓取锁。</summary>
     private double _extraWaitSeconds = 2;
     public double ExtraWaitSeconds { get => _extraWaitSeconds; set => Set(ref _extraWaitSeconds, Math.Clamp(value, 0, 120)); }
@@ -243,6 +248,20 @@ public class SubscriptionInfo
     public bool? AutoRenew;
 }
 
+/// <summary>赠送的用量重置次数（Codex「Usage limit resets」、智谱「用量重置额度」）：
+/// 使用后可立即重置周/5 小时额度；每条次数有独立有效期，过期作废。</summary>
+public class BonusReset
+{
+    /// <summary>适用范围标签（页面原文，如「Full reset」「周额度」）；空 = 页面未区分范围。</summary>
+    public string Scope = "";
+    /// <summary>可用次数。</summary>
+    public int Count = 1;
+    /// <summary>有效期截止时间；null = 页面未显示（如智谱需打开「重置管理」弹层才看得到，弹层也缺失时）。</summary>
+    public DateTimeOffset? ExpireAt;
+    /// <summary>有效期原文（统一格式关闭时回退展示）。</summary>
+    public string? RawText;
+}
+
 public class RuleResult
 {
     public string Label = "";
@@ -266,6 +285,8 @@ public class ServiceScrapeResult
     public List<RuleResult> Rules = new();
     public SubscriptionInfo? Subscription;
     public DateTimeOffset? SubscriptionFetchedAt;
+    /// <summary>赠送的用量重置次数（Codex/智谱；无此功能的供应商为空列表）。</summary>
+    public List<BonusReset> BonusResets = new();
     public DateTimeOffset Time = DateTimeOffset.Now;
 
     /// <summary>陈旧数据回退：非 null 表示本结果是「上次成功数据 + 本次刷新失败」的合成视图，

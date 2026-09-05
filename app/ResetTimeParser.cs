@@ -34,6 +34,14 @@ public static class ResetTimeParser
         @"(\d+)\s*(?:分钟|分|minutes?\b|mins?\b|m\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex TimeOnly = new(
         @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})", RegexOptions.Compiled);
+    /// <summary>英文月名日期：「Oct 4, 9:57 AM」「October 4, 2026, 9:57 AM」「Jul 29, 2026」。
+    /// BCL TryParse 对无年份英文月名+时间的解析不可靠（实测 "Oct 4, 9:57 AM" 解析成乱序），必须显式解析。</summary>
+    private static readonly Regex EnglishMonth = new(
+        @"(?<mon>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[A-Za-z]*\.?\s+(?<d>\d{1,2})(?:st|nd|rd|th)?" +
+        @"(?:,?\s*(?<y>\d{4}))?(?:,?\s*(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})\s*(?<ampm>[APap][Mm])?)?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly string[] EnglishMonthNames =
+        { "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec" };
     private static readonly Regex TimeAmPm = new(
         @"(?<h>\d{1,2})\s*[:：]\s*(?<mi>\d{2})\s*(?<ampm>[APap][Mm])", RegexOptions.Compiled);
     private static readonly Regex LeadWords = new(
@@ -67,6 +75,28 @@ public static class ResetTimeParser
         {
             if (dt < now.Date.AddDays(-1)) dt = dt.AddYears(1);
             return dt;
+        }
+
+        // 英文月名日期（Codex「Expires Oct 4, 9:57 AM」）：年份缺省用今年，已过去视为明年
+        m = EnglishMonth.Match(raw);
+        if (m.Success)
+        {
+            int mon = Array.FindIndex(EnglishMonthNames,
+                n => m.Groups["mon"].Value.StartsWith(n, StringComparison.OrdinalIgnoreCase)) + 1;
+            int year = m.Groups["y"].Success ? int.Parse(m.Groups["y"].Value) : now.Year;
+            int hh = m.Groups["h"].Success ? G(m, "h") : 0;
+            int mi = m.Groups["mi"].Success ? G(m, "mi") : 0;
+            if (m.Groups["ampm"].Success)
+            {
+                string ampm = m.Groups["ampm"].Value;
+                if (ampm.Equals("PM", StringComparison.OrdinalIgnoreCase) && hh < 12) hh += 12;
+                else if (ampm.Equals("AM", StringComparison.OrdinalIgnoreCase) && hh == 12) hh = 0;
+            }
+            if (mon > 0 && TryBuild(year, mon, G(m, "d"), hh, mi, out dt))
+            {
+                if (!m.Groups["y"].Success && dt < now.AddHours(-1)) dt = dt.AddYears(1);
+                return dt;
+            }
         }
 
         // 相对时间：N 天 / N 小时 / N 分钟（可组合，中英文）

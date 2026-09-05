@@ -29,6 +29,8 @@
                            VerticalAlignment="Center" Visibility="Collapsed"/>
                 <TextBlock x:Name="SubText" Foreground="#8A8A95" FontSize="10.5" Visibility="Collapsed"/>
             </DockPanel>
+            <TextBlock x:Name="BonusText" Margin="17,2,0,0" Foreground="#8A8A95" FontSize="10.5"
+                       TextWrapping="Wrap" Visibility="Collapsed"/>
             <StackPanel x:Name="RowsPanel" Margin="0,10,0,0"/>
             <StackPanel x:Name="NeedLoginPanel" Visibility="Collapsed" Margin="0,9,0,1">
                 <TextBlock x:Name="NeedLoginText" Text="Not signed in; quota cannot be read." Foreground="#C9C9D1" FontSize="11.5" TextWrapping="Wrap"/>

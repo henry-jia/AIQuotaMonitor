@@ -170,6 +170,66 @@ var neverCompletes = new TaskCompletionSource<bool>(TaskCreationOptions.RunConti
 if (await MainWindow.CompletesWithinAsync(neverCompletes.Task, TimeSpan.FromMilliseconds(25)))
     failures.Add("Hung shutdown work bypassed the configured timeout.");
 
+// ---------- 赠送重置次数（Codex / 智谱 GLM） ----------
+
+// Codex：页面直列两条 Full reset，各自到期时间（英文月名 + AM/PM，无年份 → 当年）
+checks++;
+var codexPayload = """{"entries":[{"scope":"full reset","count":1,"expire":"Oct 4, 9:57 AM"},{"scope":"full reset","count":1,"expire":"Oct 5, 12:18 PM"}],"glm":{"count":0,"scopes":[]},"manage":false}""";
+var codexResets = ScrapeEngine.ParseBonusPayload(codexPayload, now, out bool codexManage);
+if (codexManage)
+    failures.Add("Codex payload without a manage button was reported as having one.");
+if (codexResets.Count != 2)
+    failures.Add($"Codex payload should yield 2 bonus resets, got {codexResets.Count}.");
+else
+{
+    if (codexResets[0].ExpireAt?.DateTime != new DateTime(2026, 10, 4, 9, 57, 0))
+        failures.Add($"Codex reset #1 expiry parsed as {codexResets[0].ExpireAt}, expected 2026-10-04 09:57.");
+    if (codexResets[1].ExpireAt?.DateTime != new DateTime(2026, 10, 5, 12, 18, 0))
+        failures.Add($"Codex reset #2 expiry parsed as {codexResets[1].ExpireAt}, expected 2026-10-05 12:18 (PM must not be dropped).");
+    if (codexResets[0].Count != 1 || codexResets[0].Scope != "full reset")
+        failures.Add("Codex reset scope/count not preserved.");
+}
+
+// 智谱 GLM：页面直显「1次 未使用」「周额度 1次」，无到期时间，有「重置管理」按钮
+checks++;
+var glmPayload = """{"entries":[],"glm":{"count":1,"scopes":[{"scope":"周额度","count":1}]},"manage":true}""";
+var glmResets = ScrapeEngine.ParseBonusPayload(glmPayload, now, out bool glmManage);
+if (!glmManage)
+    failures.Add("GLM payload with a manage button was not detected.");
+if (glmResets.Count != 1 || glmResets[0].Scope != "周额度" || glmResets[0].Count != 1 || glmResets[0].ExpireAt != null)
+    failures.Add("GLM page payload should yield one 周额度 ×1 entry without expiry.");
+
+// GLM 弹层：有效期至合并回页面条目（按范围标签匹配）
+checks++;
+var glmDialogPayload = """{"entries":[{"scope":"周额度","count":1,"expire":"2026-10-01 23:59:59"}]}""";
+var glmDialog = ScrapeEngine.ParseBonusPayload(glmDialogPayload, now, out _);
+var glmMerged = ScrapeEngine.MergeBonusResets(glmResets, glmDialog);
+if (glmMerged.Count != 1 || glmMerged[0].ExpireAt?.DateTime != new DateTime(2026, 10, 1, 23, 59, 0))
+    failures.Add($"GLM dialog expiry was not merged into the page entry: count={glmMerged.Count}, expiry={glmMerged.FirstOrDefault()?.ExpireAt}.");
+
+// GLM 次数用完：「0次 未使用」不应产生任何条目
+checks++;
+var glmEmpty = ScrapeEngine.ParseBonusPayload(
+    """{"entries":[],"glm":{"count":0,"scopes":[{"scope":"周额度","count":0}]},"manage":true}""", now, out _);
+if (glmEmpty.Count != 0)
+    failures.Add("A fully-used GLM reset quota must not produce bonus reset entries.");
+
+// 损坏/空 payload 不抛异常、不产生条目
+checks++;
+if (ScrapeEngine.ParseBonusPayload("", now, out _).Count != 0 ||
+    ScrapeEngine.ParseBonusPayload("not-json", now, out _).Count != 0)
+    failures.Add("Malformed bonus-reset payloads must yield no entries.");
+
+// 多账户：独立会话开关随配置序列化（camelCase），编辑副本不丢
+checks++;
+var isolatedSvc = ConfigStore.Clone(new ServiceConfig { Name = "Codex Maja", IsolatedSession = true });
+if (!isolatedSvc.IsolatedSession)
+    failures.Add("IsolatedSession flag was lost in config clone round-trip.");
+if (!System.Text.Json.JsonSerializer.Serialize(new ServiceConfig { IsolatedSession = true },
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })
+        .Contains("\"isolatedSession\":true"))
+    failures.Add("IsolatedSession must serialize as camelCase isolatedSession.");
+
 if (failures.Count > 0)
 {
     Console.Error.WriteLine($"FAIL {failures.Count}/{checks}");

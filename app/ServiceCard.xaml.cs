@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -158,6 +159,7 @@ public partial class ServiceCard : UserControl
         RowsPanel.Children.Clear();
         NeedLoginPanel.Visibility = Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Collapsed;
+        BonusText.Visibility = Visibility.Collapsed;
         RefreshTimeText.Visibility = Visibility.Collapsed;
         RowsPanel.Children.Add(new TextBlock
         {
@@ -174,6 +176,7 @@ public partial class ServiceCard : UserControl
         _theme = ColorTheme.Resolve(cfg);
         SetHeader(svc);
         BindSubscription(result.Subscription);
+        BindBonusResets(result.BonusResets, cfg);
         // 最后刷新时间：今天只显示时分，跨天带日期（强迫症友好）
         var t = result.Time.LocalDateTime;
         RefreshTimeText.Text = t.Date == DateTime.Today ? t.ToString("HH:mm") : t.ToString("MM-dd HH:mm");
@@ -288,6 +291,53 @@ public partial class ServiceCard : UserControl
     private void Login_Click(object sender, RoutedEventArgs e)
     {
         if (_service != null) RequestLogin?.Invoke(_service);
+    }
+
+    /// <summary>赠送重置行：「赠送重置 N 次 · 最早 10-04 09:57 到期」，tooltip 逐条列出范围与有效期；
+    /// 最早到期已进入 24 小时转黄色提醒。已过期的次数不再展示（供应商自动作废）。</summary>
+    private void BindBonusResets(IReadOnlyList<BonusReset>? resets, AppConfig cfg)
+    {
+        BonusText.Visibility = Visibility.Collapsed;
+        if (resets == null) return;
+        var active = resets.Where(r => r.ExpireAt == null || r.ExpireAt > DateTimeOffset.Now.AddHours(-6)).ToList();
+        if (active.Count == 0) return;
+        int total = active.Sum(r => Math.Max(1, r.Count));
+        var earliest = active.Where(r => r.ExpireAt != null).MinBy(r => r.ExpireAt!.Value);
+        string text = I18n.T("bonus_resets_summary", total);
+        if (earliest?.ExpireAt is { } exp)
+            text += I18n.T("bonus_resets_earliest", FormatBonusExpiry(exp, earliest.RawText, cfg));
+        BonusText.Text = text;
+        var tip = new System.Text.StringBuilder();
+        foreach (var r in active)
+        {
+            string scope = string.IsNullOrWhiteSpace(r.Scope) ? I18n.T("bonus_scope_generic") : r.Scope;
+            string line = I18n.T("bonus_resets_tip_line", scope, r.Count);
+            if (r.ExpireAt is { } e2)
+                line += I18n.T("bonus_resets_tip_expire", FormatBonusExpiry(e2, r.RawText, cfg));
+            tip.AppendLine(line);
+        }
+        BonusText.ToolTip = tip.ToString().TrimEnd();
+        BonusText.Foreground = new SolidColorBrush(
+            earliest?.ExpireAt is { } soon && soon - DateTimeOffset.Now < TimeSpan.FromHours(24)
+                ? _theme.Near
+                : (Color)ColorConverter.ConvertFromString("#8A8A95"));
+        BonusText.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>有效期展示：统一格式开启时按全局日期格式，否则回退页面原文；非法自定义格式回退默认。</summary>
+    private static string FormatBonusExpiry(DateTimeOffset exp, string? raw, AppConfig cfg)
+    {
+        if (!cfg.UnifiedDateFormat && !string.IsNullOrWhiteSpace(raw)) return raw!;
+        try
+        {
+            return exp.LocalDateTime.ToString(
+                string.IsNullOrWhiteSpace(cfg.DateFormat) ? "MM-dd HH:mm" : cfg.DateFormat,
+                System.Globalization.CultureInfo.CurrentCulture);
+        }
+        catch (FormatException)
+        {
+            return raw ?? exp.LocalDateTime.ToString("MM-dd HH:mm");
+        }
     }
 
     private void ViewPage_Click(object sender, RoutedEventArgs e)

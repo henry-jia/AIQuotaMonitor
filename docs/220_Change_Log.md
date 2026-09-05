@@ -1,5 +1,19 @@
 # Change Log
 
+## [20260905] Release v1.6.0
+- **類型**：Feature
+- **影響範圍**：session isolation, bonus-reset scraping, card display, settings UI, reset-time parsing, regression tests, release documentation
+- **內容**：Ship per-service isolated sessions for multi-account monitoring and Codex/GLM bonus usage-reset display as v1.6.0.
+- **關聯文件**：`README.md`, `README.en.md`, `docs/releases/v1.6.0.md`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Kimi
+
+## [20260905] Multi-account sessions and bonus usage-reset display
+- **類型**：Feature
+- **影響範圍**：session isolation (per-service WebView2 profiles), bonus-reset scraping (Codex/GLM), card display, settings UI, reset-time parsing, regression tests, documentation
+- **內容**：Services can enable an "isolated session" (own WebView2 profile + encrypted cookie store keyed by service id) so multiple accounts at the same provider show their own quotas; the login window uses the same session as the scraper. Bonus usage resets are now scraped and shown: Codex "Usage limit resets" entries with their per-entry expiry, and GLM "用量重置额度" counts with expiry read from the "重置管理" dialog (opened and closed automatically, best-effort). Cards show total count plus earliest expiry with a 24-hour warning color; expired entries are hidden. Added explicit English month-name date parsing ("Oct 4, 9:57 AM") after BCL TryParse proved unreliable for that shape.
+- **關聯文件**：`README.md`, `README.en.md`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Kimi
+
 ## [20260902] Auto-convert remaining-labeled quota values to used
 - **類型**：Bugfix
 - **影響範圍**：quota parsing (percent type), auto-extract script payload, settings tooltips, regression tests, documentation
