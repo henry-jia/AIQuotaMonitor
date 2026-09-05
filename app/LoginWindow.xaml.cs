@@ -5,7 +5,8 @@ using Microsoft.Web.WebView2.Core;
 namespace AIQuotaMonitor;
 
 /// <summary>
-/// 内置浏览器窗口：与抓取引擎共享用户数据目录（同一域名只需登录一次）。
+/// 内置浏览器窗口：使用与抓取引擎一致的会话环境（默认共享 profile，同一域名只需登录一次；
+/// 服务开启「独立会话」时为该服务独立的 profile）。
 /// 两种用途：登录（viewOnly=false）与查看页面核对内容（viewOnly=true，仅标题不同）。
 /// 关闭窗口后由主窗口触发该服务的重新抓取。
 /// </summary>

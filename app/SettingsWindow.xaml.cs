@@ -95,6 +95,8 @@ public partial class SettingsWindow : Window
         GroupService.Header = I18n.T("group_service");
         EnableServiceCheck.Content = I18n.T("enable_service");
         PauseServiceCheck.Content = I18n.T("pause_service_setting");
+        IsolatedSessionCheck.Content = I18n.T("isolated_session");
+        IsolatedSessionCheck.ToolTip = I18n.T("tip_isolated_session");
         LblName.Text = I18n.T("field_name");
         LblUrl.Text = I18n.T("field_url");
         LblExtraWait.Text = I18n.T("field_extra_wait");
@@ -355,6 +357,17 @@ public partial class SettingsWindow : Window
             if (res.Subscription.AutoRenew is { } ar) sb.AppendLine(I18n.T("sub_auto_renew", I18n.T(ar ? "on" : "off")));
             if (res.Subscription.ExpireAt == null && res.Subscription.AutoRenew == null)
                 sb.AppendLine(I18n.T("sub_not_detected"));
+        }
+        if (res.BonusResets.Count > 0)
+        {
+            sb.AppendLine(I18n.T("bonus_resets_header"));
+            foreach (var b in res.BonusResets)
+            {
+                string scope = string.IsNullOrWhiteSpace(b.Scope) ? I18n.T("bonus_scope_generic") : b.Scope;
+                string line = I18n.T("bonus_resets_tip_line", scope, b.Count);
+                if (b.ExpireAt is { } exp) line += I18n.T("bonus_resets_tip_expire", $"{exp:yyyy-MM-dd HH:mm}");
+                sb.AppendLine(line);
+            }
         }
         foreach (var r in res.Rules)
         {

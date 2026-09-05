@@ -19,14 +19,24 @@ public class ScrapeException : Exception
 
 /// <summary>
 /// 抓取引擎：一个移出屏幕但保持 1280×800 正常视口的宿主窗口承载共享 WebView2
-/// （视口不能小——懒加载 SPA 靠视口/可见性触发渲染），所有服务共用一个用户数据目录
-/// （同一域名只需登录一次）。所有公开方法必须在 UI 线程调用；退出时调用 Dispose 释放。
+/// （视口不能小——懒加载 SPA 靠视口/可见性触发渲染）。默认所有服务共用一个用户数据目录
+/// （同一域名只需登录一次）；服务开启「独立会话」（IsolatedSession）后改用按服务 Id 隔离的
+/// 独立 profile 与 Cookie 存储，支持同一供应商的多账号。
+/// 所有公开方法必须在 UI 线程调用；退出时调用 Dispose 释放。
 /// </summary>
 public sealed class ScrapeEngine
 {
-    private Window? _host;
-    private WebView2? _webView;
-    private CoreWebView2Environment? _env;
+    /// <summary>一个浏览器会话：宿主窗口 + WebView2 + 环境 + Cookie 存储路径（null = 默认共享存储）。</summary>
+    private sealed class BrowserSession
+    {
+        public string? CookiePath;
+        public Window? Host;
+        public WebView2? WebView;
+        public CoreWebView2Environment? Env;
+    }
+
+    private readonly BrowserSession _shared = new();
+    private readonly Dictionary<string, BrowserSession> _isolated = new();
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private readonly SemaphoreSlim _scrapeLock = new(1, 1);
 
@@ -35,21 +45,41 @@ public sealed class ScrapeEngine
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "AIQuotaMonitor", "WebView2UserData");
 
-    public CoreWebView2Environment? Env => _env;
+    /// <summary>独立会话的用户数据目录（与共享 profile 平级，互不嵌套避免 Chromium 锁冲突）。</summary>
+    private static string IsolatedUserDataFolder(string serviceId) =>
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AIQuotaMonitor", "Sessions", serviceId);
+
+    private static string IsolatedCookiePath(string serviceId) =>
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AIQuotaMonitor", $"cookies-{serviceId}.dat");
+
+    public CoreWebView2Environment? Env => _shared.Env;
     internal string? SessionRestoreErrorCode { get; private set; }
 
-    /// <summary>退出时调用：关闭 WebView2 与宿主窗口，避免 Chromium 子进程残留
-    /// 锁住 WebView2UserData 导致下次启动失败或 Cookie 存储损坏。</summary>
+    private IEnumerable<BrowserSession> AllSessions()
+    {
+        yield return _shared;
+        foreach (var s in _isolated.Values) yield return s;
+    }
+
+    /// <summary>退出时调用：关闭全部 WebView2 与宿主窗口，避免 Chromium 子进程残留
+    /// 锁住用户数据目录导致下次启动失败或 Cookie 存储损坏。</summary>
     public void Dispose()
     {
-        try
+        foreach (var s in AllSessions())
         {
-            _webView?.Dispose();
-            _host?.Close();
-        }
-        catch
-        {
-            // 退出清理尽力而为
+            try
+            {
+                s.WebView?.Dispose();
+                s.Host?.Close();
+            }
+            catch
+            {
+                // 退出清理尽力而为
+            }
         }
     }
 
@@ -68,41 +98,75 @@ public sealed class ScrapeEngine
 
     public async Task EnsureInitializedAsync()
     {
-        if (_webView?.CoreWebView2 != null) return;
+        if (_shared.WebView?.CoreWebView2 != null) return;
         await _initLock.WaitAsync();
         try
         {
-            if (_webView?.CoreWebView2 != null) return;
-            CheckRuntime();
-            // Language 设为中文：让按浏览器语言渲染的网站（如 Kimi）直接显示中文页面，
-            // 与中文标签/默认识别规则保持一致
-            _env = await CoreWebView2Environment.CreateAsync(null, UserDataFolder,
-                new CoreWebView2EnvironmentOptions { Language = "zh-CN" });
-            // 宿主窗口：移出屏幕但保持正常视口尺寸。
-            // 不能用 1x1/透明——懒加载的 SPA（如阿里云控制台微前端）靠视口/可见性
-            // 触发渲染，视口过小就不生成内容 DOM，抓取永远落空
-            _host = new Window
-            {
-                Width = 1280,
-                Height = 800,
-                Left = -32000,
-                Top = -32000,
-                WindowStyle = WindowStyle.None,
-                ShowInTaskbar = false,
-                ShowActivated = false,
-            };
-            _host.Show();
-            _webView = new WebView2();
-            _host.Content = _webView;
-            await _webView.EnsureCoreWebView2Async(_env);
-            // 还原上次保存的 Cookie（含会话级登录票据，见 CookieStore 注释）
-            var restore = await CookieStore.RestoreAsync(_webView.CoreWebView2!);
+            if (_shared.WebView?.CoreWebView2 != null) return;
+            var restore = await InitSessionAsync(_shared, UserDataFolder);
             SessionRestoreErrorCode = restore.ErrorCode;
         }
         finally
         {
             _initLock.Release();
         }
+    }
+
+    /// <summary>按服务取浏览器会话：开启「独立会话」的服务用按服务 Id 隔离的 profile，
+    /// 否则用共享 profile。登录窗口与抓取都走这里，保证两边落在同一会话上。</summary>
+    private async Task<BrowserSession> GetSessionAsync(ServiceConfig? service)
+    {
+        if (service is not { IsolatedSession: true, Id: { Length: > 0 } id })
+        {
+            await EnsureInitializedAsync();
+            return _shared;
+        }
+        if (_isolated.TryGetValue(id, out var existing) && existing.WebView?.CoreWebView2 != null)
+            return existing;
+        await _initLock.WaitAsync();
+        try
+        {
+            if (!_isolated.TryGetValue(id, out var session))
+                _isolated[id] = session = new BrowserSession { CookiePath = IsolatedCookiePath(id) };
+            if (session.WebView?.CoreWebView2 != null) return session;
+            await InitSessionAsync(session, IsolatedUserDataFolder(id));
+            return session;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
+    /// <summary>登录窗口用：取该服务所属会话的环境（共享或独立），确保已初始化。</summary>
+    public async Task<CoreWebView2Environment> GetEnvironmentForAsync(ServiceConfig service) =>
+        (await GetSessionAsync(service)).Env!;
+
+    /// <summary>初始化一个会话：建环境、宿主窗口与 WebView，还原该会话的 Cookie。
+    /// 宿主窗口移出屏幕但保持正常视口尺寸——不能用 1x1/透明：懒加载的 SPA（如阿里云控制台
+    /// 微前端）靠视口/可见性触发渲染，视口过小就不生成内容 DOM，抓取永远落空。
+    /// Language 设为中文：让按浏览器语言渲染的网站（如 Kimi）直接显示中文页面。</summary>
+    private async Task<CookiePersistenceResult> InitSessionAsync(BrowserSession session, string userDataFolder)
+    {
+        CheckRuntime();
+        session.Env = await CoreWebView2Environment.CreateAsync(null, userDataFolder,
+            new CoreWebView2EnvironmentOptions { Language = "zh-CN" });
+        session.Host = new Window
+        {
+            Width = 1280,
+            Height = 800,
+            Left = -32000,
+            Top = -32000,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+        };
+        session.Host.Show();
+        session.WebView = new WebView2();
+        session.Host.Content = session.WebView;
+        await session.WebView.EnsureCoreWebView2Async(session.Env);
+        // 还原上次保存的 Cookie（含会话级登录票据，见 CookieStore 注释）
+        return await CookieStore.RestoreAsync(session.WebView.CoreWebView2!, session.CookiePath);
     }
 
     /// <summary>抓取单个服务，单个服务失败不影响其他服务。
@@ -112,11 +176,13 @@ public sealed class ScrapeEngine
     {
         var result = new ServiceScrapeResult { Service = service, Time = DateTimeOffset.Now };
         CoreWebView2? wv = null;
+        string? cookiePath = null;
         await _scrapeLock.WaitAsync(ct);
         try
         {
-            await EnsureInitializedAsync();
-            wv = _webView!.CoreWebView2!;
+            var session = await GetSessionAsync(service);
+            wv = session.WebView!.CoreWebView2!;
+            cookiePath = session.CookiePath;
 
             // 1) 导航并等待完成（导航报错时检查页面实况，重定向链误报则继续）
             await NavigateAsync(wv, service.Url, timeoutSeconds, ct);
@@ -222,12 +288,11 @@ public sealed class ScrapeEngine
                 result.Status = ScrapeStatus.Ok;
             }
 
-            // 6) 订阅信息智能扫描（到期时间 + 自动续费）：
-            //    SubscriptionUrl 为空时在用量页面上扫（零额外导航）；否则导航到订阅页
-            if (result.Status == ScrapeStatus.Ok && fetchSubscription)
+            // 6) 用量页补充扫描：赠送重置次数 + （无独立订阅页时）订阅信息，两者都必须在用量页面上
+            //    执行——4b 若导航进了跨域 iframe 须先回到原用量页，否则会扫到 iframe 页面
+            if (result.Status == ScrapeStatus.Ok)
             {
-                // 4b 若已导航进跨域 iframe，「顺带扫」前须回到原用量页，否则订阅扫描会扫到 iframe 页面
-                if (navigatedIntoFrame && string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                if (navigatedIntoFrame)
                 {
                     try
                     {
@@ -238,7 +303,15 @@ public sealed class ScrapeEngine
                         // 回不去就在当前页 best-effort 扫一次
                     }
                 }
-                if (!string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                if (fetchSubscription && string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                {
+                    result.Subscription = await ScanSubscriptionAsync(wv, service, ct);
+                    if (result.Subscription != null)
+                        result.SubscriptionFetchedAt = DateTimeOffset.Now;
+                }
+                await ScanBonusResetsAsync(wv, result, ct);
+                // 7) 独立订阅页（如智谱套餐概览、Codex Billing）：导航过去扫订阅信息
+                if (fetchSubscription && !string.IsNullOrWhiteSpace(service.SubscriptionUrl))
                 {
                     try
                     {
@@ -248,10 +321,10 @@ public sealed class ScrapeEngine
                     {
                         // 订阅页打不开不影响配额结果，仍尝试在当前页扫一次
                     }
+                    result.Subscription = await ScanSubscriptionAsync(wv, service, ct);
+                    if (result.Subscription != null)
+                        result.SubscriptionFetchedAt = DateTimeOffset.Now;
                 }
-                result.Subscription = await ScanSubscriptionAsync(wv, service, ct);
-                if (result.Subscription != null)
-                    result.SubscriptionFetchedAt = DateTimeOffset.Now;
             }
 
         }
@@ -264,21 +337,26 @@ public sealed class ScrapeEngine
         {
             // 所有结果都保存：登录重定向、页面改版、单条规则失败期间也可能刷新认证票据。
             // 服务端失效的 Cookie 即使保存也不会重新生效，因此不会绕过服务端过期策略。
-            if (wv != null) await CookieStore.SaveAsync(wv);
+            if (wv != null) await CookieStore.SaveAsync(wv, cookiePath);
             _scrapeLock.Release();
         }
         return result;
     }
 
-    /// <summary>登录窗口关闭或应用退出前立即保存共享 WebView profile 的 Cookie。</summary>
+    /// <summary>登录窗口关闭或应用退出前保存所有已初始化会话（共享 + 各独立会话）的 Cookie。</summary>
     internal async Task<CookiePersistenceResult> SaveSessionAsync()
     {
         await _scrapeLock.WaitAsync();
         try
         {
-            if (_webView?.CoreWebView2 is { } wv)
-                return await CookieStore.SaveAsync(wv);
-            return CookiePersistenceResult.Ok();
+            var first = CookiePersistenceResult.Ok();
+            foreach (var s in AllSessions())
+            {
+                if (s.WebView?.CoreWebView2 is not { } wv) continue;
+                var r = await CookieStore.SaveAsync(wv, s.CookiePath);
+                if (!r.Success && first.Success) first = r;
+            }
+            return first;
         }
         finally
         {
@@ -481,6 +559,244 @@ public sealed class ScrapeEngine
             }
             await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
         }
+    }
+
+    // ---------- 赠送重置次数（Codex「Usage limit resets」/ 智谱「用量重置额度」） ----------
+
+    /// <summary>页面扫描：Codex 直列每条重置与到期时间（可多条）；智谱只显示次数，
+    /// 并探测「重置管理」按钮（到期时间在弹层里）。</summary>
+    private const string BonusPageScanScript = """
+    (function () {
+      try {
+        function collectDocs(root) {
+          var docs = [root];
+          for (var di = 0; di < docs.length; di++) {
+            var frames = docs[di].querySelectorAll("iframe");
+            for (var fi = 0; fi < frames.length; fi++) {
+              try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
+            }
+            var els = docs[di].querySelectorAll("*");
+            for (var si = 0; si < els.length; si++) {
+              if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+            }
+          }
+          return docs;
+        }
+        var docs = collectDocs(document);
+        var t = "";
+        for (var d0 = 0; d0 < docs.length; d0++) { try { t += (((docs[d0].body && docs[d0].body.innerText) || docs[d0].textContent || "")) + "\n"; } catch (e) {} }
+        var entries = [];
+        var i, m;
+        // Codex / ChatGPT：「Full reset … Expires Oct 4, 9:57 AM」（可多条，各自到期时间不同）
+        var reCodex = /\b(full|partial)\s+reset\b[\s\S]{0,160}?expires\s+([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s*(?:\d{4},?\s*)?\d{1,2}:\d{2}\s*[AP]M)/ig;
+        while ((m = reCodex.exec(t)) !== null && entries.length < 10) {
+          entries.push({ scope: m[1].toLowerCase() + " reset", count: 1, expire: m[2] });
+        }
+        // 智谱 GLM：「用量重置额度」区块直显「N次 未使用」与「周额度 N次」
+        var glm = { count: 0, scopes: [] };
+        var gi = t.indexOf("用量重置额度");
+        if (gi >= 0) {
+          var seg = t.substring(gi, gi + 400);
+          var mc = seg.match(/(\d+)\s*次\s*未使用/);
+          if (mc) glm.count = parseInt(mc[1], 10);
+          var reScope = /(周额度|MCP\s*每月额度|5\s*(?:小时|h)\s*额度|月额度)[\s\S]{0,12}?(\d+)\s*次/g;
+          while ((m = reScope.exec(seg)) !== null && glm.scopes.length < 6) {
+            glm.scopes.push({ scope: m[1].replace(/\s+/g, ""), count: parseInt(m[2], 10) });
+          }
+        }
+        // 「重置管理」按钮：点开弹层才看得到每条的到期时间
+        var manage = false;
+        if (gi >= 0) {
+          var cands = document.querySelectorAll("button, [role=button], a, span, div");
+          for (i = 0; i < cands.length; i++) {
+            var tx = (cands[i].innerText || "").replace(/\s+/g, "");
+            if (tx === "重置管理" || /^manage\s*resets?$/i.test(tx)) { manage = true; break; }
+          }
+        }
+        return JSON.stringify({ entries: entries, glm: glm, manage: manage });
+      } catch (e) { return JSON.stringify({ entries: [], glm: { count: 0, scopes: [] }, manage: false }); }
+    })()
+    """;
+
+    /// <summary>点开「重置管理」按钮（取最后一个精确匹配的叶子元素，父容器通常先出现）。</summary>
+    private const string BonusOpenManageScript = """
+    (function () {
+      try {
+        var cands = document.querySelectorAll("button, [role=button], a, span, div");
+        var target = null;
+        for (var i = 0; i < cands.length; i++) {
+          var tx = (cands[i].innerText || "").replace(/\s+/g, "");
+          if (tx === "重置管理" || /^manage\s*resets?$/i.test(tx)) target = cands[i];
+        }
+        if (!target) return "";
+        target.click();
+        return "opened";
+      } catch (e) { return ""; }
+    })()
+    """;
+
+    /// <summary>弹层扫描：「周额度 … 1次重置 … 有效期至 2026-10-01 23:59:59」。
+    /// 「次重置」之间不允许有空格，避免吃到页面直显的「1次 未使用」。</summary>
+    private const string BonusDialogScanScript = """
+    (function () {
+      try {
+        var t = (document.body && document.body.innerText) || "";
+        var entries = [];
+        var m;
+        var re = /(周额度|MCP\s*每月额度|5\s*(?:小时|h)\s*额度|月额度)[\s\S]{0,120}?(\d+)\s*次重置[\s\S]{0,160}?有效期至\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2}[:：]\d{2}(?:[:：]\d{2})?)?)/g;
+        while ((m = re.exec(t)) !== null && entries.length < 10) {
+          entries.push({ scope: m[1].replace(/\s+/g, ""), count: parseInt(m[2], 10), expire: m[3] });
+        }
+        // 无范围标签的兜底：「N次重置 … 有效期至 …」
+        if (!entries.length) {
+          var re2 = /(\d+)\s*次重置[\s\S]{0,160}?有效期至\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2}[:：]\d{2}(?:[:：]\d{2})?)?)/g;
+          while ((m = re2.exec(t)) !== null && entries.length < 10) {
+            entries.push({ scope: "", count: parseInt(m[1], 10), expire: m[2] });
+          }
+        }
+        return JSON.stringify({ entries: entries });
+      } catch (e) { return JSON.stringify({ entries: [] }); }
+    })()
+    """;
+
+    /// <summary>关闭弹层：Escape → 常见关闭按钮 → 弹层容器内的 × 文本按钮（避免误点页面其他 X）。</summary>
+    private const string BonusCloseDialogScript = """
+    (function () {
+      try {
+        try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, which: 27, bubbles: true })); } catch (e) {}
+        var sels = ["[aria-label='Close']", "[aria-label='关闭']", ".close",
+          "[class*=modal] [class*=close]", "[class*=Modal] [class*=Close]",
+          "[class*=dialog] [class*=close]", "[class*=Dialog] [class*=Close]"];
+        for (var s = 0; s < sels.length; s++) {
+          var els = document.querySelectorAll(sels[s]);
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].offsetParent !== null) { els[i].click(); return "closed"; }
+          }
+        }
+        var all = document.querySelectorAll("button, [role=button], span, div, i");
+        for (var j = 0; j < all.length; j++) {
+          var tx = (all[j].innerText || "").replace(/\s+/g, "");
+          if (tx !== "×" && tx !== "✕") continue;
+          if (all[j].offsetParent === null) continue;
+          var p = all[j], inDialog = false;
+          while (p) {
+            if (/modal|dialog|popup|overlay/i.test(String(p.className || ""))) { inDialog = true; break; }
+            p = p.parentElement;
+          }
+          if (inDialog) { all[j].click(); return "closed"; }
+        }
+        return "";
+      } catch (e) { return ""; }
+    })()
+    """;
+
+    /// <summary>扫描赠送的用量重置次数。Codex 页面直接列出每条重置与到期时间；
+    /// 智谱只显示次数，到期时间在「重置管理」弹层里——有待补到期时间的条目时点开扫完再关闭。
+    /// 全部 best-effort：任何失败都不影响配额主结果。</summary>
+    private async Task ScanBonusResetsAsync(CoreWebView2 wv, ServiceScrapeResult result, CancellationToken ct)
+    {
+        try
+        {
+            var now = DateTime.Now;
+            var entries = ParseBonusPayload(await EvalStringAsync(wv, BonusPageScanScript), now, out bool hasManage);
+            if (hasManage && entries.Any(r => r.ExpireAt == null))
+            {
+                if (await EvalStringAsync(wv, BonusOpenManageScript) == "opened")
+                {
+                    await Task.Delay(800, ct);
+                    var dialog = ParseBonusPayload(await EvalStringAsync(wv, BonusDialogScanScript), now, out _);
+                    entries = MergeBonusResets(entries, dialog);
+                    try { await EvalRawAsync(wv, BonusCloseDialogScript); }
+                    catch { /* 弹层关闭失败不影响结果，下次导航自然消失 */ }
+                }
+            }
+            result.BonusResets = entries;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 赠送重置为附加信息，任何失败都不影响配额主结果
+        }
+    }
+
+    /// <summary>解析赠送重置扫描脚本的返回（entries: scope/count/expire；
+    /// glm: 页面直显的总次数与范围拆分；manage: 页面上有「重置管理」按钮）。</summary>
+    internal static List<BonusReset> ParseBonusPayload(string payload, DateTime now, out bool hasManageButton)
+    {
+        hasManageButton = false;
+        var list = new List<BonusReset>();
+        if (string.IsNullOrWhiteSpace(payload)) return list;
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("manage", out var mg) && mg.ValueKind == JsonValueKind.True)
+                hasManageButton = true;
+            if (root.TryGetProperty("entries", out var entries) && entries.ValueKind == JsonValueKind.Array)
+                foreach (var e in entries.EnumerateArray())
+                {
+                    if (ReadBonusEntry(e, now) is { } item) list.Add(item);
+                }
+            if (root.TryGetProperty("glm", out var glm) && glm.ValueKind == JsonValueKind.Object)
+            {
+                var scopes = new List<BonusReset>();
+                if (glm.TryGetProperty("scopes", out var sc) && sc.ValueKind == JsonValueKind.Array)
+                    foreach (var e in sc.EnumerateArray())
+                    {
+                        if (ReadBonusEntry(e, now) is { } item) scopes.Add(item);
+                    }
+                int total = glm.TryGetProperty("count", out var c) && c.TryGetInt32(out int n) ? n : 0;
+                var usable = scopes.Where(s => s.Count > 0).ToList();
+                if (usable.Count > 0) list.AddRange(usable);
+                else if (total > 0) list.Add(new BonusReset { Count = total });
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            // 脚本返回损坏时按「无赠送重置」处理
+        }
+        return list;
+    }
+
+    private static BonusReset? ReadBonusEntry(JsonElement e, DateTime now)
+    {
+        string scope = e.TryGetProperty("scope", out var s) && s.ValueKind == JsonValueKind.String
+            ? s.GetString() ?? "" : "";
+        int count = e.TryGetProperty("count", out var c) && c.TryGetInt32(out int n) ? n : 1;
+        if (count <= 0) return null;
+        string? expireRaw = e.TryGetProperty("expire", out var x) && x.ValueKind == JsonValueKind.String
+            ? x.GetString() : null;
+        var expire = string.IsNullOrWhiteSpace(expireRaw) ? null : ResetTimeParser.Parse(expireRaw, now);
+        return new BonusReset
+        {
+            Scope = scope,
+            Count = count,
+            ExpireAt = expire.HasValue ? new DateTimeOffset(expire.Value) : null,
+            RawText = string.IsNullOrWhiteSpace(expireRaw) ? null : expireRaw,
+        };
+    }
+
+    /// <summary>把弹层扫到的到期时间并回页面直显的条目（按范围标签匹配）；弹层独有的条目直接追加。</summary>
+    internal static List<BonusReset> MergeBonusResets(
+        IReadOnlyList<BonusReset> baseEntries, IReadOnlyList<BonusReset> dialogEntries)
+    {
+        if (dialogEntries.Count == 0) return new List<BonusReset>(baseEntries);
+        static string Norm(string s) => s.Replace(" ", "").ToLowerInvariant();
+        var merged = new List<BonusReset>(baseEntries);
+        foreach (var d in dialogEntries)
+        {
+            var existing = merged.FirstOrDefault(r => Norm(r.Scope) == Norm(d.Scope) && r.ExpireAt == null);
+            if (existing != null)
+            {
+                existing.Count = Math.Max(existing.Count, d.Count);
+                existing.ExpireAt ??= d.ExpireAt;
+                existing.RawText ??= d.RawText;
+            }
+            else
+            {
+                merged.Add(d);
+            }
+        }
+        return merged;
     }
 
     /// <summary>收集页面里 JS 读不到内容的 iframe 地址（跨域 iframe，配额内容可能在其中）。</summary>

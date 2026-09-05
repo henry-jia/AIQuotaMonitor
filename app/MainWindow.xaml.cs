@@ -533,6 +533,7 @@ public partial class MainWindow : Window
         Rules = good.Rules,
         Subscription = good.Subscription,
         SubscriptionFetchedAt = good.SubscriptionFetchedAt,
+        BonusResets = good.BonusResets,
         SuggestLogin = failed?.SuggestLogin ?? false,
         StaleError = failed?.ErrorMessage,
         StaleFromDisk = fromDisk,
@@ -641,14 +642,15 @@ public partial class MainWindow : Window
         win.Show();
     }
 
-    /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。</summary>
+    /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。
+    /// 开启「独立会话」的服务使用自己的浏览器 profile，登录态互不影响。</summary>
     private async void OpenServiceWindow(ServiceConfig svc, bool viewOnly)
     {
         try
         {
-            await Engine.EnsureInitializedAsync();
+            var env = await Engine.GetEnvironmentForAsync(svc);
             if (_exiting) return;
-            var login = new LoginWindow(Engine.Env!, svc.Url, svc.Name, viewOnly) { Owner = this };
+            var login = new LoginWindow(env, svc.Url, svc.Name, viewOnly) { Owner = this };
             login.Closed += async (s, e) =>
             {
                 if (_exiting) return;
