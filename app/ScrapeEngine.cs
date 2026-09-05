@@ -364,7 +364,9 @@ public sealed class ScrapeEngine
         }
     }
 
-    /// <summary>导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。</summary>
+    /// <summary>导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。
+    /// 超时也先探页面实况：重 SPA（如 ChatGPT）的长连接/统计脚本可能拖住 load 事件，
+    /// 内容其实早已渲染——此时继续抓取，而不是误报超时。</summary>
     private async Task NavigateAsync(CoreWebView2 wv, string url, int timeoutSeconds, CancellationToken ct)
     {
         var navDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -377,11 +379,14 @@ public sealed class ScrapeEngine
             wv.Navigate(url);
             using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var timeout = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), delayCts.Token);
-            if (await Task.WhenAny(navDone.Task, timeout) != navDone.Task)
-                throw new ScrapeException(I18n.T("page_load_timeout", timeoutSeconds));
-            delayCts.Cancel(); // 导航已完成，释放悬空计时器
-            if (navDone.Task.Result) return;
+            bool completed = await Task.WhenAny(navDone.Task, timeout) == navDone.Task;
+            if (completed)
+            {
+                delayCts.Cancel(); // 导航已完成，释放悬空计时器
+                if (navDone.Task.Result) return;
+            }
 
+            // 失败或超时：等 1.5s 后探页面实况，有实质内容则继续（继续走内容轮询等渲染）
             await Task.Delay(TimeSpan.FromMilliseconds(1500), ct);
             const string stateJs =
                 "JSON.stringify({url:location.href,title:document.title||''," +
@@ -390,6 +395,8 @@ public sealed class ScrapeEngine
             {
                 using var doc = JsonDocument.Parse(await EvalStringAsync(wv, stateJs));
                 if (doc.RootElement.GetProperty("len").GetInt32() > 50) return;
+                if (!completed)
+                    throw new ScrapeException(I18n.T("page_load_timeout", timeoutSeconds));
                 var finalUrl = doc.RootElement.GetProperty("url").GetString();
                 var title = doc.RootElement.GetProperty("title").GetString();
                 throw new ScrapeException(I18n.T("nav_failed_detail", finalUrl ?? "", title ?? ""));
@@ -397,7 +404,7 @@ public sealed class ScrapeEngine
             catch (ScrapeException) { throw; }
             catch
             {
-                throw new ScrapeException(I18n.T("nav_failed"));
+                throw new ScrapeException(completed ? I18n.T("nav_failed") : I18n.T("page_load_timeout", timeoutSeconds));
             }
         }
         finally
