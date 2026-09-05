@@ -390,7 +390,7 @@ public partial class SettingsWindow : Window
                 sb.AppendLine(I18n.T("rule_raw_text") + raw);
             }
         }
-        if (res.Rules.Count == 0 && res.Status != ScrapeStatus.NeedLogin)
+        if (res.Rules.Count == 0 && res.Status == ScrapeStatus.Ok)
             sb.AppendLine(I18n.T("no_rules_in_service"));
         return sb.ToString();
     }
