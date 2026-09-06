@@ -28,8 +28,3 @@
 - Providers that grant extra usage resets (Codex "Usage limit resets", GLM "用量重置额度") shall be detected on the usage page without extra configuration, reporting scope, count, and per-entry expiry when available.
 - When expiry is only visible behind a "manage resets" dialog (GLM), the scraper shall open the dialog, read the per-entry expiry, and close it again; any failure in this scan shall not affect the quota result.
 - The card shall show the total available count and the earliest expiry (formatted like other reset times, warning color inside 24 hours); already-expired entries shall be hidden.
-
-## Window summoning
-
-- While the widget is visible it may take a taskbar slot ("Show in taskbar", default on) so a window covered by others is one taskbar click away; hiding to tray shall remove the slot.
-- A single left click on the tray icon shall always summon: show if hidden and raise to the front in every case, including non-topmost windows above the current foreground window; it shall never hide. Hiding stays on the title-bar hide button, the widget context menu, and the tray menu's show/hide item (a literal toggle, not focus-dependent).

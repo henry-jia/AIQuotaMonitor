@@ -37,6 +37,10 @@ public class AppConfig : ObservableObject
     private bool _topmost = true;
     public bool Topmost { get => _topmost; set => Set(ref _topmost, value); }
 
+    /// <summary>在任务栏显示窗口占位：被其他窗口挡住时点任务栏快速唤起（隐藏到托盘时不占位）。</summary>
+    private bool _showInTaskbar = true;
+    public bool ShowInTaskbar { get => _showInTaskbar; set => Set(ref _showInTaskbar, value); }
+
     private double _opacity = 0.92;
     public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.3, 1.0)); }
 

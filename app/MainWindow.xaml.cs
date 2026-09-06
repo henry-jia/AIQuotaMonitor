@@ -95,6 +95,7 @@ public partial class MainWindow : Window
     private void ApplyConfig()
     {
         Topmost = _config.Topmost;
+        ShowInTaskbar = _config.ShowInTaskbar; // 构造期（首次 Show 前）与设置保存后都会走到这里
         Root.Background = new SolidColorBrush(Ui.ParseAcrylicTint(_config.BackgroundColor));
         Root.Opacity = _config.Opacity;
         ApplyScale();
@@ -771,20 +772,28 @@ public partial class MainWindow : Window
         ConfigStore.Save(_config);
     }
 
+    /// <summary>唤起（托盘单击）：已隐藏则先显示，然后无条件置前；永不隐藏。
+    /// 不用 IsActive 判断「在最前就隐藏」——托盘弹层/新任务栏点击会抢焦点，该信号不可靠。</summary>
+    private void SummonWindow()
+    {
+        if (!IsVisible) Show();
+        // 置前：Topmost 先置真再回配置值——非置顶窗口也能越过当前前台窗口（仅 Activate 不保证）
+        Activate();
+        Topmost = true;
+        Topmost = _config.Topmost;
+    }
+
+    /// <summary>字面切换（托盘菜单「显示 / 隐藏窗口」，用户点了明确标签，不依赖焦点状态）：可见→隐藏；隐藏→显示并置前。</summary>
     private void ToggleVisibility()
     {
         if (IsVisible)
         {
+            SavePosition();
             Hide();
         }
         else
         {
-            Show();
-            Activate();
-            // 重新应用置顶，把窗口带到最前
-            bool top = _config.Topmost;
-            Topmost = false;
-            Topmost = top;
+            SummonWindow();
         }
     }
 
@@ -1127,6 +1136,13 @@ public partial class MainWindow : Window
             Visible = true,
             ContextMenuStrip = menu,
         };
-        _tray.DoubleClick += (s, e) => Dispatcher.Invoke(ToggleVisibility);
+        // 单击唤起（只显示+置前，永不隐藏）。NotifyIcon 的 MouseEventArgs.Clicks 恒为 0
+        // （源码硬编码），不能用；双击防重由 NotifyIcon 内部 _doubleClick 旗标保证：
+        // 双击手势的第二击不会触发 MouseClick。
+        _tray.MouseClick += (s, e) =>
+        {
+            if (e.Button == WinForms.MouseButtons.Left)
+                Dispatcher.Invoke(SummonWindow);
+        };
     }
 }

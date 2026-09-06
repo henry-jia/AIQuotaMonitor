@@ -37,6 +37,7 @@ public partial class SettingsWindow : Window
         LayoutVertical.IsChecked = !_working.IsHorizontal;
         LayoutHorizontal.IsChecked = _working.IsHorizontal;
         TopmostCheck.IsChecked = _working.Topmost;
+        TaskbarCheck.IsChecked = _working.ShowInTaskbar;
         OpacitySlider.Value = _working.Opacity;
         OpacityLabel.Text = _working.Opacity.ToString("P0");
         GlobalIntervalBox.Text = _working.RefreshIntervalMinutes.ToString();
@@ -167,6 +168,8 @@ public partial class SettingsWindow : Window
         LayoutVertical.Content = I18n.T("layout_vertical");
         LayoutHorizontal.Content = I18n.T("layout_horizontal");
         TopmostCheck.Content = I18n.T("topmost");
+        TaskbarCheck.Content = I18n.T("show_in_taskbar");
+        TaskbarCheck.ToolTip = I18n.T("tip_show_in_taskbar");
         LblOpacity.Text = I18n.T("opacity");
         LblBackground.Text = I18n.T("background_color");
         LblGlobalInterval.Text = I18n.T("global_interval");
@@ -487,6 +490,7 @@ public partial class SettingsWindow : Window
         if (int.TryParse(ScrapeTimeoutBox.Text, out int secs)) _working.ScrapeTimeoutSeconds = secs; // 属性内 clamp 10–300
         _working.Layout = LayoutHorizontal.IsChecked == true ? "horizontal" : "vertical";
         _working.Topmost = TopmostCheck.IsChecked == true;
+        _working.ShowInTaskbar = TaskbarCheck.IsChecked == true;
         _working.Opacity = OpacitySlider.Value;
         _working.ShowRemainingTime = ShowRemainingCheck.IsChecked == true;
         _working.ShowPaceBaseline = ShowPaceCheck.IsChecked == true;

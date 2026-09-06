@@ -704,6 +704,7 @@
                                 <RadioButton x:Name="LayoutHorizontal" Content="Horizontal"/>
                             </StackPanel>
                             <CheckBox x:Name="TopmostCheck" Content="Always on top" Margin="0,8,0,0"/>
+                            <CheckBox x:Name="TaskbarCheck" Content="Show in taskbar" Margin="0,6,0,0"/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <TextBlock x:Name="LblOpacity" Text="Opacity" Width="90" Style="{StaticResource FieldLabel}"/>
                                 <Slider x:Name="OpacitySlider" Width="220" Minimum="0.3" Maximum="1"

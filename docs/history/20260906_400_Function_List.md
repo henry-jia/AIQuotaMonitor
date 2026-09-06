@@ -10,11 +10,6 @@
 - Bonus usage resets (Codex "Usage limit resets", GLM "用量重置额度") with per-entry expiry, including opening GLM's "重置管理" dialog to read it.
 - Configurable countdown versus exact-date rendering.
 
-## Window summoning
-
-- Optional taskbar slot while the widget is visible (default on, "Show in taskbar" in settings); hiding to tray removes it.
-- Tray left click always summons (show if hidden, raise to front, never hides — replaces the old double-click toggle); raising works for non-topmost windows too. The tray menu's show/hide item stays a literal toggle.
-
 ## Session continuity
 
 - Shared WebView2 profile for scraping and interactive login; per-service "isolated session" option with its own profile and cookie store for multiple accounts at the same provider.

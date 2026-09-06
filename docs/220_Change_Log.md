@@ -1,5 +1,12 @@
 # Change Log
 
+## [20260906] Taskbar presence and one-click tray summoning
+- **類型**：Feature
+- **影響範圍**：widget window visibility (taskbar slot, tray click), settings UI, i18n, documentation
+- **內容**：The widget now takes a taskbar slot while visible (default on, "Show in taskbar" setting) so a covered window is one taskbar click away; hiding to tray removes the slot. Tray left click becomes an always-summon action — show if hidden and raise to front in every case, including non-topmost windows (the old double-click toggle never raised them); it never hides, since tray-click focus state is unreliable on Win11. The tray menu's show/hide item stays a literal toggle. (NotifyIcon gotcha: its MouseClick raises MouseEventArgs.Clicks=0 always, so click-count guards must not be used.)
+- **關聯文件**：`README.md`, `README.en.md`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Claude
+
 ## [20260905] Release v1.6.1 — navigation timeout probes page reality
 - **類型**：Bugfix
 - **影響範圍**：navigation timeout handling, settings test-scrape output, regression tests, release documentation
