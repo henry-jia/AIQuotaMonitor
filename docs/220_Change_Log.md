@@ -1,5 +1,12 @@
 # Change Log
 
+## [20260906] Show version in the widget title bar
+- **類型**：Feature
+- **影響範圍**：widget title bar
+- **內容**：The widget title bar shows the running version as dim gray text beside the title (from AssemblyVersion, e.g. `v1.7.0`), so the running build is identifiable without opening file properties.
+- **關聯文件**：`README.md`, `README.en.md`, `docs/releases/v1.7.0.md`
+- **操作人**：Claude
+
 ## [20260906] Release v1.7.0
 - **類型**：Feature
 - **影響範圍**：widget window visibility, taskbar slot, tray interaction, settings UI, i18n, release documentation

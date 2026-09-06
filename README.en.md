@@ -25,7 +25,7 @@ See the complete [v1.7.0 release notes](docs/releases/v1.7.0.md).
 
 ## Features
 
-- Borderless rounded dark translucent widget; drag anywhere to move (position persisted); always-on-top toggle; adjustable opacity; **customizable background color** (picker with screen eyedropper; under Win11 glass it acts as the tint, alpha controls how much the blur shows through); **mouse-wheel zoom for the whole UI incl. text, with a 100% reset button** in the title bar
+- Borderless rounded dark translucent widget; drag anywhere to move (position persisted); always-on-top toggle; adjustable opacity; **customizable background color** (picker with screen eyedropper; under Win11 glass it acts as the tint, alpha controls how much the blur shows through); **mouse-wheel zoom for the whole UI incl. text, with a 100% reset button** in the title bar; version shown in dim text beside the title
 - **Native Windows 11 look**: the widget uses DWM **Acrylic** blur and the settings/history/color-picker windows use **Mica**, dark and immersive with system-aligned 8px rounded corners; icon buttons use **Segoe Fluent Icons** (refresh/pause/close/warning) with layered hover/pressed feedback; on Windows 10 it gracefully falls back to solid rounded surfaces
 - One card per service: accent dot + name (**Ctrl+Click opens the official usage page in your browser**; names show link style while Ctrl is held) + last-refresh time (small text right of the subscription line; `HH:mm` today, `MM-dd HH:mm` older). Each quota window is one row: label + percentage + slim progress bar + usage detail / reset time
 - **Alt+Drag to reorder cards**: a free-floating ghost follows your cursor (even outside the window) while siblings slide aside with smooth 150ms animations; the new order is persisted

@@ -53,6 +53,9 @@ public partial class MainWindow : Window
         _testMode = testMode;
         InitializeComponent();
         Backdrop.Apply(this, Backdrop.Kind.Acrylic, hideBorder: true);
+        // 标题右侧灰字版本号（AssemblyVersion 三段，不带构建哈希后缀）
+        var ver = typeof(MainWindow).Assembly.GetName().Version;
+        VersionText.Text = ver is null ? "" : $"v{ver.Major}.{ver.Minor}.{ver.Build}";
         I18n.Changed += OnI18nChanged;
         // 按住 Ctrl 时卡片服务名变链接样式（Ctrl+点击打开官方用量页面）
         PreviewKeyDown += (s, e) => UpdateCtrlHint();
