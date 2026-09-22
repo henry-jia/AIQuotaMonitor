@@ -1,5 +1,12 @@
 # Change Log
 
+## [20260922] README what's-new updated for v1.7.1
+- **類型**：Docs
+- **影響範圍**：README.md, README.en.md
+- **內容**：What's-new sections now cover v1.7.1 (acrylic black-patch fix and haze removal), keeping a pointer to the v1.7.0 highlights; main fast-forwarded so the GitHub repo page shows the current README.
+- **關聯文件**：`README.md`, `README.en.md`
+- **操作人**：Kimi
+
 ## [20260922] Release v1.7.1
 - **類型**：Bugfix
 - **影響範圍**：widget backdrop rendering (transparency), release documentation

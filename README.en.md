@@ -16,12 +16,12 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.7.0
+## What's new in v1.7.1
 
-- **Taskbar presence** (default on): while visible the widget takes a taskbar slot, so a window covered by others is one click away — no need to keep always-on-top. Hiding to tray frees the slot. Toggle in Global settings.
-- **One-click tray summoning**: a single left click on the tray icon always shows and raises the widget (even non-topmost windows come above the foreground); replaces the old double-click toggle, which hid a covered window on first activation. Hide via the title-bar button or the menus.
+- **Glass backdrop fully fixed**: the widget is transparent from startup; automatic card refreshes, button hover, wheel zoom and cross-monitor drags no longer paint opaque black patches (previously every partial redraw blacked out its dirty region).
+- **No more acrylic haze**: the widget background now uses a pure-blur acrylic (ACCENT API) without the system backdrop's built-in milky luminosity layer, and the blur persists when the window loses focus; darkening is still controlled by the configurable background tint.
 
-See the complete [v1.7.0 release notes](docs/releases/v1.7.0.md).
+See the complete [v1.7.1 release notes](docs/releases/v1.7.1.md). For the v1.7.0 highlights (taskbar presence, one-click tray summoning, version in the title bar) see the [v1.7.0 release notes](docs/releases/v1.7.0.md).
 
 ## Features
 
