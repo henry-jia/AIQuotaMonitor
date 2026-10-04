@@ -325,8 +325,11 @@ public partial class ServiceCard : UserControl
     }
 
     /// <summary>有效期展示：统一格式开启时按全局日期格式，否则回退页面原文；非法自定义格式回退默认。</summary>
-    private static string FormatBonusExpiry(DateTimeOffset exp, string? raw, AppConfig cfg)
+    internal static string FormatBonusExpiry(DateTimeOffset exp, string? raw, AppConfig cfg)
     {
+        // The provider sometimes supplies only a date; do not invent a visible expiry time.
+        if (!string.IsNullOrWhiteSpace(raw) && !System.Text.RegularExpressions.Regex.IsMatch(raw, @"\d{1,2}[:：]\d{2}"))
+            return raw!;
         if (!cfg.UnifiedDateFormat && !string.IsNullOrWhiteSpace(raw)) return raw!;
         try
         {

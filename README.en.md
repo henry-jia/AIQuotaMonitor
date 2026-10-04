@@ -16,12 +16,12 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.7.1
+## What's new in v1.7.2
 
-- **Glass backdrop fully fixed**: the widget is transparent from startup; automatic card refreshes, button hover, wheel zoom and cross-monitor drags no longer paint opaque black patches (previously every partial redraw blacked out its dirty region).
-- **No more acrylic haze**: the widget background now uses a pure-blur acrylic (ACCENT API) without the system backdrop's built-in milky luminosity layer, and the blur persists when the window loses focus; darkening is still controlled by the configurable background tint.
+- **ChatGPT subscription expiry fixed**: recognizes the updated Billing page's "continue to have access ... until" message and canceled, non-renewing plans.
+- **Missing bonus resets fixed**: supports date-only expiry such as "Expires October 5" and waits for asynchronous reset lists. Date-only grants retain the provider's date text without inventing an exact expiry time.
 
-See the complete [v1.7.1 release notes](docs/releases/v1.7.1.md). For the v1.7.0 highlights (taskbar presence, one-click tray summoning, version in the title bar) see the [v1.7.0 release notes](docs/releases/v1.7.0.md).
+See the complete [v1.7.2 release notes](docs/releases/v1.7.2.md). For the glass backdrop fixes see the [v1.7.1 release notes](docs/releases/v1.7.1.md).
 
 ## Features
 
@@ -133,7 +133,7 @@ During each scrape the app also scans the page text (incl. same-origin iframes a
 
 - **Expiry** is recognized from `结束时间 2026-08-24`, `剩余天数 31 天`, `下次自动续费时间：2026-08-17`, `08月03日自动续费`, `will be canceled on Aug 19, 2026`, etc.; **yellow at ≤5 days, orange-red at ≤1 day**
 - **Auto-renew** from `自动续费 开启/未开启` text, implicit signals like `下次自动续费时间`, and the actual state of switch/checkbox controls
-- If the info lives on a **different page** (e.g. Zhipu's plan overview, Codex's Billing page), fill the service's **Subscription URL**; these are fetched on a 6-hour cache so refreshes don't open an extra page every time. Empty = scan the usage page itself, free.
+- If the info lives on a **different page** (e.g. Zhipu's plan overview), fill the service's **Subscription URL**; these are fetched on a 6-hour cache so refreshes don't open an extra page every time. Standard ChatGPT / Codex usage pages automatically use the same account's Billing page, with explicit custom URLs taking priority. Other services with an empty URL scan the usage page itself.
 
 ## Usage history & stale-data fallback
 

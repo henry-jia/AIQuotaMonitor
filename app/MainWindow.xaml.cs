@@ -400,9 +400,9 @@ public partial class MainWindow : Window
                 if (svc.Paused) continue; // 单服务暂停：跳过抓取
                 if (_nextDue.TryGetValue(svc, out var due) && DateTime.Now < due) continue;
                 _results.TryGetValue(svc, out var prev);
-                // 订阅信息变化慢：SubscriptionUrl 为空时在用量页顺带扫（零成本，每次都取）；
+                // 订阅信息变化慢：没有独立订阅页时在用量页顺带扫（每次都取）；
                 // 需跳转订阅页时按 6 小时缓存，避免每次刷新多一次导航
-                bool fetchSub = string.IsNullOrWhiteSpace(svc.SubscriptionUrl)
+                bool fetchSub = string.IsNullOrWhiteSpace(ScrapeEngine.GetSubscriptionUrl(svc))
                     || prev?.Subscription == null
                     || prev.SubscriptionFetchedAt < DateTimeOffset.Now.AddHours(-6);
                 ServiceScrapeResult res;

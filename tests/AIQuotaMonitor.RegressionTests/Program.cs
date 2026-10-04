@@ -190,6 +190,33 @@ else
         failures.Add("Codex reset scope/count not preserved.");
 }
 
+// Date-only grants from the updated ChatGPT Usage page.
+checks++;
+var dateOnlyResets = ScrapeEngine.ParseBonusPayload(
+    """{"entries":[{"scope":"full reset","count":1,"expire":"October 5"},{"scope":"full reset","count":1,"expire":"October 23"},{"scope":"full reset","count":1,"expire":"October 30"}]}""",
+    new DateTime(2026, 10, 5, 22, 0, 0, DateTimeKind.Local), out _);
+var expectedDates = new[] { 5, 23, 30 }.Select(day => new DateTime(2026, 10, day).AddDays(1).AddTicks(-1)).ToArray();
+if (dateOnlyResets.Count != 3 || !dateOnlyResets.Select(r => r.ExpireAt?.LocalDateTime).SequenceEqual(expectedDates.Select(d => (DateTime?)d)))
+    failures.Add("Date-only grants must preserve all three dates and remain available on the expiry day without rolling into next year.");
+
+checks++;
+if (ServiceCard.FormatBonusExpiry(new DateTimeOffset(new DateTime(2026, 10, 5)), "October 5",
+    new AppConfig { UnifiedDateFormat = true, DateFormat = "yyyy-MM-dd HH:mm" }) != "October 5")
+    failures.Add("Date-only bonus expiry must not invent a visible time when unified formatting is enabled.");
+
+checks++;
+if (ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com/settings/usage?tab=overview" }) != "https://chatgpt.com/settings/billing" ||
+    ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com/codex/settings/usage/" }) != "https://chatgpt.com/settings/billing")
+    failures.Add("ChatGPT usage pages without an override must automatically scan the separate Billing page.");
+
+checks++;
+const string customSubscriptionUrl = "https://example.com/plan";
+if (ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com/settings/usage", SubscriptionUrl = customSubscriptionUrl }) != customSubscriptionUrl ||
+    ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com.example.com/settings/usage" }) != null ||
+    ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://example.com/settings/usage" }) != null ||
+    ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "invalid-url" }) != null)
+    failures.Add("Automatic Billing navigation must preserve explicit overrides and apply only to the exact ChatGPT host.");
+
 // 智谱 GLM：页面直显「1次 未使用」「周额度 1次」，无到期时间，有「重置管理」按钮
 checks++;
 var glmPayload = """{"entries":[],"glm":{"count":1,"scopes":[{"scope":"周额度","count":1}]},"manage":true}""";

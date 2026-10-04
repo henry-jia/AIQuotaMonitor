@@ -59,6 +59,17 @@ public sealed class ScrapeEngine
     public CoreWebView2Environment? Env => _shared.Env;
     internal string? SessionRestoreErrorCode { get; private set; }
 
+    /// <summary>Keep explicit overrides; ChatGPT usage pages have a known separate billing page.</summary>
+    internal static string? GetSubscriptionUrl(ServiceConfig service)
+    {
+        if (!string.IsNullOrWhiteSpace(service.SubscriptionUrl)) return service.SubscriptionUrl;
+        if (Uri.TryCreate(service.Url, UriKind.Absolute, out var uri) &&
+            uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("chatgpt.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.TrimEnd('/') is "/settings/usage" or "/codex/settings/usage")
+            return "https://chatgpt.com/settings/billing";
+        return null;
+    }
+
     private IEnumerable<BrowserSession> AllSessions()
     {
         yield return _shared;
@@ -175,6 +186,7 @@ public sealed class ScrapeEngine
         int timeoutSeconds = 30, CancellationToken ct = default)
     {
         var result = new ServiceScrapeResult { Service = service, Time = DateTimeOffset.Now };
+        string? subscriptionUrl = GetSubscriptionUrl(service);
         CoreWebView2? wv = null;
         string? cookiePath = null;
         await _scrapeLock.WaitAsync(ct);
@@ -303,7 +315,7 @@ public sealed class ScrapeEngine
                         // 回不去就在当前页 best-effort 扫一次
                     }
                 }
-                if (fetchSubscription && string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                if (fetchSubscription && string.IsNullOrWhiteSpace(subscriptionUrl))
                 {
                     result.Subscription = await ScanSubscriptionAsync(wv, service, ct);
                     if (result.Subscription != null)
@@ -311,11 +323,11 @@ public sealed class ScrapeEngine
                 }
                 await ScanBonusResetsAsync(wv, result, ct);
                 // 7) 独立订阅页（如智谱套餐概览、Codex Billing）：导航过去扫订阅信息
-                if (fetchSubscription && !string.IsNullOrWhiteSpace(service.SubscriptionUrl))
+                if (fetchSubscription && !string.IsNullOrWhiteSpace(subscriptionUrl))
                 {
                     try
                     {
-                        await NavigateAsync(wv, service.SubscriptionUrl!, timeoutSeconds, ct);
+                        await NavigateAsync(wv, subscriptionUrl!, timeoutSeconds, ct);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -477,7 +489,7 @@ public sealed class ScrapeEngine
 
     /// <summary>订阅信息智能扫描：在页面全文（含同源 iframe）里识别到期时间与自动续费状态。
     /// 扫描不到时按「额外等待秒数」轮询重试（SPA 异步渲染）。</summary>
-    private async Task<SubscriptionInfo?> ScanSubscriptionAsync(CoreWebView2 wv, ServiceConfig service, CancellationToken ct)
+    internal async Task<SubscriptionInfo?> ScanSubscriptionAsync(CoreWebView2 wv, ServiceConfig service, CancellationToken ct)
     {
         const string js = """
         (function () {
@@ -504,7 +516,8 @@ public sealed class ScrapeEngine
               /下次自动续费时间\s*[：:]\s*(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?)/,
               /(\d{1,2}\s*月\s*\d{1,2}\s*日)\s*自动续费/,
               /将于\s*(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日(?:\s*\d{1,2}[:：]\d{2})?)\s*(?:取消|到期|续费|续订)/,
-              /(?:will be canceled on|cancels? on|expires? on|renews? on)\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
+              /(?:will be canceled on|cancels? on|expires? on|renews? on)\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i,
+              /continue\s+to\s+have\s+access\s+to\s+[^\n.]{1,80}?\s+until\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
             ];
             for (var i = 0; i < pats.length; i++) { var m = t.match(pats[i]); if (m) { expire = m[1].trim(); break; } }
 
@@ -512,7 +525,7 @@ public sealed class ScrapeEngine
             var auto = "";
             if (/自动续费[\s\S]{0,10}(未开启|未开通|已关闭|关闭)/.test(t) ||
                 /(?:套餐|订阅|计划|plan)[\s\S]{0,15}(已取消|将被取消|取消)|(?:不会|不再)自动续费/i.test(t) ||
-                /will be canceled|cancellation effective/i.test(t)) auto = "off";
+                /will be cancel[le]+d|cancellation effective|(?:plan|subscription)\s+is\s+cancel[le]+d|won['’]t\s+renew|will\s+not\s+renew/i.test(t)) auto = "off";
             else if (/自动续费[\s\S]{0,10}(?<!未)(已开启|开启)/.test(t)) auto = "on";
             else if (/下次自动续费时间|\d{1,2}\s*月\s*\d{1,2}\s*日\s*自动续费|将自动续费|自动续费中|会自动续费|自动续订|renews automatically|auto-?renew(al)?\s*(is\s+)?on|next billing/i.test(t)) auto = "on";
             if (!auto) {
@@ -539,18 +552,22 @@ public sealed class ScrapeEngine
         """;
 
         var deadline = DateTime.Now + TimeSpan.FromSeconds(Math.Max(2, service.ExtraWaitSeconds));
+        string expireText = "", autoText = "";
         while (true)
         {
-            string expireText = "", autoText = "";
+            ct.ThrowIfCancellationRequested();
             try
             {
                 using var doc = JsonDocument.Parse(await EvalStringAsync(wv, js));
-                expireText = doc.RootElement.GetProperty("expire").GetString() ?? "";
-                autoText = doc.RootElement.GetProperty("auto").GetString() ?? "";
+                var scannedExpire = doc.RootElement.GetProperty("expire").GetString();
+                var scannedAuto = doc.RootElement.GetProperty("auto").GetString();
+                if (!string.IsNullOrEmpty(scannedExpire)) expireText = scannedExpire;
+                if (!string.IsNullOrEmpty(scannedAuto)) autoText = scannedAuto;
             }
             catch { /* 本轮扫描失败，按超时重试 */ }
 
-            if ((!string.IsNullOrEmpty(expireText) || !string.IsNullOrEmpty(autoText)) || DateTime.Now >= deadline)
+            // Renewal state can render before the expiry; do not cache a partial result for six hours.
+            if ((!string.IsNullOrEmpty(expireText) && !string.IsNullOrEmpty(autoText)) || DateTime.Now >= deadline)
             {
                 if (string.IsNullOrEmpty(expireText) && string.IsNullOrEmpty(autoText)) return null;
                 var now = DateTime.Now;
@@ -594,11 +611,17 @@ public sealed class ScrapeEngine
         for (var d0 = 0; d0 < docs.length; d0++) { try { t += (((docs[d0].body && docs[d0].body.innerText) || docs[d0].textContent || "")) + "\n"; } catch (e) {} }
         var entries = [];
         var i, m;
-        // Codex / ChatGPT：「Full reset … Expires Oct 4, 9:57 AM」（可多条，各自到期时间不同）
-        var reCodex = /\b(full|partial)\s+reset\b[\s\S]{0,160}?expires\s+([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s*(?:\d{4},?\s*)?\d{1,2}:\d{2}\s*[AP]M)/ig;
+        // Read each row separately so a missing expiry never borrows the next row's date.
+        // New pages show "Expires October 5"; older pages include a year and/or time.
+        var reCodex = /\b(full|partial)\s+reset\b((?:(?!\b(?:full|partial)\s+reset\b)[\s\S]){0,160})/ig;
+        var reExpiry = /\bexpires\s+([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?(?:,?\s+\d{1,2}:\d{2}\s*(?:[AP]M)?)?)/i;
         while ((m = reCodex.exec(t)) !== null && entries.length < 10) {
-          entries.push({ scope: m[1].toLowerCase() + " reset", count: 1, expire: m[2] });
+          var expiry = m[2].match(reExpiry);
+          entries.push({ scope: m[1].toLowerCase() + " reset", count: 1, expire: expiry ? expiry[1].trim() : "" });
         }
+        var availableMatch = t.match(/\bavailable\s+(\d+)\b/i);
+        var available = availableMatch ? parseInt(availableMatch[1], 10) : -1;
+        if (available === 0) entries = [];
         // 智谱 GLM：「用量重置额度」区块直显「N次 未使用」与「周额度 N次」
         var glm = { count: 0, scopes: [] };
         var gi = t.indexOf("用量重置额度");
@@ -620,7 +643,7 @@ public sealed class ScrapeEngine
             if (tx === "重置管理" || /^manage\s*resets?$/i.test(tx)) { manage = true; break; }
           }
         }
-        return JSON.stringify({ entries: entries, glm: glm, manage: manage });
+        return JSON.stringify({ entries: entries, glm: glm, manage: manage, available: available });
       } catch (e) { return JSON.stringify({ entries: [], glm: { count: 0, scopes: [] }, manage: false }); }
     })()
     """;
@@ -700,12 +723,30 @@ public sealed class ScrapeEngine
     /// <summary>扫描赠送的用量重置次数。Codex 页面直接列出每条重置与到期时间；
     /// 智谱只显示次数，到期时间在「重置管理」弹层里——有待补到期时间的条目时点开扫完再关闭。
     /// 全部 best-effort：任何失败都不影响配额主结果。</summary>
-    private async Task ScanBonusResetsAsync(CoreWebView2 wv, ServiceScrapeResult result, CancellationToken ct)
+    internal async Task ScanBonusResetsAsync(CoreWebView2 wv, ServiceScrapeResult result, CancellationToken ct)
     {
         try
         {
             var now = DateTime.Now;
-            var entries = ParseBonusPayload(await EvalStringAsync(wv, BonusPageScanScript), now, out bool hasManage);
+            var deadline = now + TimeSpan.FromSeconds(Math.Max(2, result.Service.ExtraWaitSeconds));
+            List<BonusReset> entries;
+            bool hasManage;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                string payload = await EvalStringAsync(wv, BonusPageScanScript);
+                entries = ParseBonusPayload(payload, now, out hasManage);
+                int available = -1;
+                using (var doc = JsonDocument.Parse(payload))
+                {
+                    if (doc.RootElement.TryGetProperty("available", out var a) && a.TryGetInt32(out int n))
+                        available = n;
+                }
+                // Quotas can appear before the reset list. A confirmed zero is ready immediately.
+                if (available == 0 || (entries.Count > 0 && (available < 0 || entries.Sum(r => r.Count) >= available)) ||
+                    DateTime.Now >= deadline) break;
+                await Task.Delay(500, ct);
+            }
             if (hasManage && entries.Any(r => r.ExpireAt == null))
             {
                 if (await EvalStringAsync(wv, BonusOpenManageScript) == "opened")
@@ -772,7 +813,11 @@ public sealed class ScrapeEngine
         if (count <= 0) return null;
         string? expireRaw = e.TryGetProperty("expire", out var x) && x.ValueKind == JsonValueKind.String
             ? x.GetString() : null;
-        var expire = string.IsNullOrWhiteSpace(expireRaw) ? null : ResetTimeParser.Parse(expireRaw, now);
+        // A date-only grant is still usable on its expiry date. Preserve that precision rather
+        // than interpreting midnight as expired (or rolling today's grant into the next year).
+        bool dateOnly = !string.IsNullOrWhiteSpace(expireRaw) && !Regex.IsMatch(expireRaw, @"\d{1,2}[:：]\d{2}");
+        var expire = string.IsNullOrWhiteSpace(expireRaw) ? null : ResetTimeParser.Parse(expireRaw, dateOnly ? now.Date : now);
+        if (dateOnly && expire.HasValue) expire = expire.Value.Date.AddDays(1).AddTicks(-1);
         return new BonusReset
         {
             Scope = scope,

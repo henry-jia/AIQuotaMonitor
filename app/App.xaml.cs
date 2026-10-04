@@ -81,6 +81,16 @@ public partial class App : Application
             return;
         }
 
+        // ChatGPT Billing / Usage DOM regression smoke, using a temporary isolated profile.
+        int chatGptDomSmokeIndex = Array.IndexOf(e.Args, "--test-chatgpt-dom");
+        if (chatGptDomSmokeIndex >= 0 && chatGptDomSmokeIndex + 1 < e.Args.Length)
+        {
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            bool success = await ChatGptDomSmoke.RunAsync(e.Args[chatGptDomSmokeIndex + 1]);
+            Shutdown(success ? 0 : 1);
+            return;
+        }
+
         // 历史窗口截图模式：AIQuotaMonitor.exe --test-history-shot out.png [--lang en]
         int historyShotIndex = Array.IndexOf(e.Args, "--test-history-shot");
         if (historyShotIndex >= 0 && historyShotIndex + 1 < e.Args.Length)
