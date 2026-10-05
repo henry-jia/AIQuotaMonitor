@@ -376,18 +376,41 @@ public sealed class ScrapeEngine
         }
     }
 
-    /// <summary>导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。
+    /// <summary>同一文档（尤其 hash 路由）先离开旧页，确保重新读取登录后的状态与配额。
+    /// 导航并等待完成；导航报错时检查页面实况（重定向链误报失败但页面已加载则继续）。
     /// 超时也先探页面实况：重 SPA（如 ChatGPT）的长连接/统计脚本可能拖住 load 事件，
     /// 内容其实早已渲染——此时继续抓取，而不是误报超时。</summary>
-    private async Task NavigateAsync(CoreWebView2 wv, string url, int timeoutSeconds, CancellationToken ct)
+    internal async Task NavigateAsync(CoreWebView2 wv, string url, int timeoutSeconds, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+        // Navigate to the same URL or another hash route can retain the SPA's old document
+        // and in-memory expired-session state, even after login in a sibling WebView.
+        // Loading a blank document first keeps the profile/cookies, but discards that state.
+        if (RequiresFreshDocument(wv.Source, url))
+            await NavigateAsync(wv, "about:blank", timeoutSeconds, ct);
+
         var navDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void OnNav(object? s, CoreWebView2NavigationCompletedEventArgs e) => navDone.TrySetResult(e.IsSuccess);
+        ulong? navigationId = null;
+        var requestedUri = new Uri(url, UriKind.Absolute);
+        void OnStarting(object? s, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (navigationId == null && !e.IsRedirected &&
+                Uri.TryCreate(e.Uri, UriKind.Absolute, out var startedUri) &&
+                startedUri.AbsoluteUri == requestedUri.AbsoluteUri)
+                navigationId = e.NavigationId;
+        }
+        void OnNav(object? s, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            // Ignore completion of an older navigation canceled by the fresh-document load.
+            if (e.NavigationId == navigationId) navDone.TrySetResult(e.IsSuccess);
+        }
+        wv.NavigationStarting += OnStarting;
         wv.NavigationCompleted += OnNav;
         // 取消时中止进行中的导航，避免 WebView 在后台继续加载、下次导航落在不确定状态
         using var stopOnCancel = ct.Register(() => { try { wv.Stop(); } catch { /* WebView 已 dispose 等 */ } });
         try
         {
+            ct.ThrowIfCancellationRequested();
             wv.Navigate(url);
             using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var timeout = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), delayCts.Token);
@@ -421,9 +444,16 @@ public sealed class ScrapeEngine
         }
         finally
         {
+            wv.NavigationStarting -= OnStarting;
             wv.NavigationCompleted -= OnNav;
         }
     }
+
+    internal static bool RequiresFreshDocument(string currentUrl, string targetUrl) =>
+        Uri.TryCreate(currentUrl, UriKind.Absolute, out var current) &&
+        Uri.TryCreate(targetUrl, UriKind.Absolute, out var target) &&
+        (target.Scheme == Uri.UriSchemeHttps || target.Scheme == Uri.UriSchemeHttp) &&
+        current.GetLeftPart(UriPartial.Query) == target.GetLeftPart(UriPartial.Query);
 
     /// <summary>等待内容渲染：自动定位规则直接跑提取脚本，要求「成功且质量达标」
     /// （真实数值已渲染，而非进度条轴刻度先行出现）；选择器模式退化为定位文本出现即继续。</summary>

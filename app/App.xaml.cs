@@ -81,6 +81,16 @@ public partial class App : Application
             return;
         }
 
+        // Navigation recovery smoke, using temporary profiles and local fixtures only.
+        int navigationSmokeIndex = Array.IndexOf(e.Args, "--test-scrape-navigation");
+        if (navigationSmokeIndex >= 0 && navigationSmokeIndex + 1 < e.Args.Length)
+        {
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            bool success = await ScrapeNavigationSmoke.RunAsync(e.Args[navigationSmokeIndex + 1]);
+            Shutdown(success ? 0 : 1);
+            return;
+        }
+
         // ChatGPT Billing / Usage DOM regression smoke, using a temporary isolated profile.
         int chatGptDomSmokeIndex = Array.IndexOf(e.Args, "--test-chatgpt-dom");
         if (chatGptDomSmokeIndex >= 0 && chatGptDomSmokeIndex + 1 < e.Args.Length)

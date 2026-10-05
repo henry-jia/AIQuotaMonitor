@@ -16,16 +16,16 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ![横向布局](preview_horizontal.png)
 
-## v1.7.3 更新
+## v1.7.5 更新
 
-- [下载 v1.7.3 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.3/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.3)。无需安装 .NET，运行时需要 WebView2 Runtime。
-- **始终可主动登录**：每张卡片标题栏新增人形「去登录 / Sign in」按钮，不再依赖自动识别未登录状态；正常、加载中、抓取失败、显示旧数据和暂停时均可使用。
-- **沿用对应账号会话**：按钮使用该服务的内置浏览器会话；开启「独立会话」时仍保持账号隔离。关闭登录窗口后保存会话并刷新，暂停的服务恢复后再刷新。
-- **中英文与辅助功能**：登录按钮的提示及辅助功能名称随界面语言切换。
+- [下载 v1.7.5 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.5/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.5)。无需安装 .NET，运行时需要 WebView2 Runtime。
+- **修复已登录仍抓取失败**：使用 `/#settings/Usage` 等 hash 路由时，背景网页可能保留登录前的 `session expired` 状态。现在相同页面或 hash 路由再次抓取时会载入新文件，读取当前会话与配额。
+- **导航结果正确对应**：只接收本次导航的完成事件，避免旧导航被取消时提前开始抓取；已取消的任务不会继续打开新页面。
+- **保留账号隔离和主动登录入口**：每张卡片的人形 Sign in 按钮继续可用，独立账号仍使用各自的浏览器 profile；真正登出时不会把旧配额标为成功。
 
-验证：83 项回归检查通过（含 37 项卡片登录入口检查；使用独立临时目录），已检查英文横向与中文纵向布局。未访问真实账号进行在线登录验证。
+验证：84 项回归、9 项真实 WebView2 导航检查及 17 项 ChatGPT 页面检查通过。导航检查已加入 GitHub CI，使用本地等价页面与独立临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
 
-完整说明见 [v1.7.3 Release Notes](docs/releases/v1.7.3.md)。此前的 ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
+完整说明见 [v1.7.5 Release Notes](docs/releases/v1.7.5.md)。主动登录入口见 [v1.7.3 Release Notes](docs/releases/v1.7.3.md)；ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
 
 ## 功能一览
 

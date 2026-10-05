@@ -16,16 +16,16 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.7.3
+## What's new in v1.7.5
 
-- [Download v1.7.3 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.3/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.3). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **Sign in at any time**: every card now has a permanent person button in its header. It remains available while loading, displaying quotas or stale data, showing a scrape error, or paused, even when automatic sign-out detection misses the logout.
-- **Uses the right account session**: opens the service's embedded browser session and preserves isolated account profiles. Closing the browser saves the session and refreshes; paused services refresh after resuming.
-- **Bilingual and accessible**: the button's tooltip and accessible name follow the selected UI language.
+- [Download v1.7.5 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.5/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.5). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
+- **Scraping recovers after sign-in**: hash routes such as `/#settings/Usage` could leave the background page displaying its old `session expired` state after the login window was authenticated. Repeated document and hash-route navigation now loads a fresh document and reads the current session and quota.
+- **Navigation completion is matched correctly**: only the current navigation's completion event can release the scrape. Canceled work cannot start another page load.
+- **Account isolation and manual sign-in preserved**: the permanent person button remains available, isolated accounts retain their own browser profiles, and genuine logout cannot turn stale quota into a successful result.
 
-Validation: 83 regression checks passed, including 37 card login checks, using an isolated temporary directory. English horizontal and Chinese vertical layouts were inspected. Live-account sign-in was not tested.
+Validation: 84 regression checks, 9 real WebView2 navigation checks and 17 ChatGPT page checks passed. Navigation checks now run in GitHub CI using local fixtures and temporary profiles, without reading real account cookies. Live-account verification has not been performed.
 
-See the complete [v1.7.3 release notes](docs/releases/v1.7.3.md). For the earlier ChatGPT Billing and Reset fixes, see the [v1.7.2 release notes](docs/releases/v1.7.2.md).
+See the complete [v1.7.5 release notes](docs/releases/v1.7.5.md). The manual sign-in entry was added in [v1.7.3](docs/releases/v1.7.3.md); earlier ChatGPT Billing and Reset fixes are documented in [v1.7.2](docs/releases/v1.7.2.md).
 
 ## Features
 

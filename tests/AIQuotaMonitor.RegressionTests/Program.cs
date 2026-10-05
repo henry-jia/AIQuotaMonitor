@@ -24,6 +24,18 @@ if (args.Contains("--card-login-only"))
 }
 
 CheckReset("5天11时56分钟后刷新", now.AddDays(5).AddHours(11).AddMinutes(56));
+
+checks++;
+if (!ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/#settings/Usage", "https://chatgpt.com/#settings/Usage") ||
+    !ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/#settings/Usage", "https://chatgpt.com/#settings/Billing") ||
+    !ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/settings/usage", "https://chatgpt.com/settings/usage") ||
+    ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/settings/usage", "https://chatgpt.com/settings/billing") ||
+    ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/settings/usage?a=1", "https://chatgpt.com/settings/usage?a=2") ||
+    ScrapeEngine.RequiresFreshDocument("https://chatgpt.com/#settings/Usage", "https://example.com/#settings/Usage") ||
+    ScrapeEngine.RequiresFreshDocument("about:blank", "about:blank") ||
+    ScrapeEngine.RequiresFreshDocument("invalid", "https://chatgpt.com/#settings/Usage"))
+    failures.Add("Fresh-document navigation must recover repeated/hash URLs without resetting unrelated documents or recursing on about:blank.");
+
 CheckReset("28天11时56分钟后刷新", now.AddDays(28).AddHours(11).AddMinutes(56));
 CheckReset("Refreshes in 2 hours 30 mins", now.AddHours(2).AddMinutes(30));
 CheckReset("Resets in 4d 22h", now.AddDays(4).AddHours(22));

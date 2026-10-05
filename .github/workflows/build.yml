@@ -26,6 +26,14 @@ jobs:
       - name: Regression tests
         run: dotnet run --project tests/AIQuotaMonitor.RegressionTests -c Release
 
+      - name: Navigation recovery smoke
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $smokeProcess = Start-Process -FilePath (Resolve-Path 'publish/AIQuotaMonitor.exe').Path -ArgumentList @('--test-scrape-navigation', 'navigation-smoke.json') -WindowStyle Hidden -Wait -PassThru
+          Get-Content -LiteralPath 'navigation-smoke.json'
+          if ($smokeProcess.ExitCode -ne 0) { throw "Navigation recovery smoke failed: $($smokeProcess.ExitCode)" }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
