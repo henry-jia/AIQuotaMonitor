@@ -12,6 +12,17 @@ var failures = new List<string>();
 var checks = 0;
 I18n.Initialize(I18n.LangEn);
 
+// Run independently of persistence checks so card failures remain observable.
+var cardChecks = ServiceCardLoginTests.Run();
+checks += cardChecks.Checks;
+failures.AddRange(cardChecks.Failures);
+foreach (var failure in cardChecks.Failures) Console.Error.WriteLine(failure);
+if (args.Contains("--card-login-only"))
+{
+    Console.WriteLine($"{(failures.Count == 0 ? "PASS" : "FAIL")} card login {checks - failures.Count}/{checks}");
+    return failures.Count == 0 ? 0 : 1;
+}
+
 CheckReset("5天11时56分钟后刷新", now.AddDays(5).AddHours(11).AddMinutes(56));
 CheckReset("28天11时56分钟后刷新", now.AddDays(28).AddHours(11).AddMinutes(56));
 CheckReset("Refreshes in 2 hours 30 mins", now.AddHours(2).AddMinutes(30));

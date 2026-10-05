@@ -15,6 +15,10 @@
                         FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                         Style="{StaticResource IconButtonStyle}" ToolTip="Pause scraping"
                         Click="CardPause_Click"/>
+                <Button x:Name="CardLoginButton" DockPanel.Dock="Right" Content="&#xE77B;" Width="26" Height="26"
+                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                        Style="{StaticResource IconButtonStyle}" ToolTip="Sign in"
+                        AutomationProperties.Name="Sign in" Click="Login_Click"/>
                 <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="Dot" Width="9" Height="9"/>
                     <TextBlock x:Name="NameText" Margin="8,0,0,0" Foreground="#EDEDF2" FontSize="13" FontWeight="SemiBold"

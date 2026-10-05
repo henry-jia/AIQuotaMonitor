@@ -34,6 +34,8 @@ public partial class ServiceCard : UserControl
     {
         HeaderPanel.ToolTip = I18n.T("drag_reorder_tip");
         CardRefreshButton.ToolTip = I18n.T("refresh_this_service");
+        CardLoginButton.ToolTip = I18n.T("go_login");
+        System.Windows.Automation.AutomationProperties.SetName(CardLoginButton, I18n.T("go_login"));
         PausedBadge.Text = I18n.T("paused_badge");
         CardPauseButton.ToolTip = I18n.T(_paused ? "resume_this_service" : "pause_this_service");
         NeedLoginText.Text = I18n.T("need_login_hint");

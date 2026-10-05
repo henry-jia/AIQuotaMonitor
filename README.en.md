@@ -16,17 +16,16 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.7.2
+## What's new in v1.7.3
 
-- [Download v1.7.2 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.2/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.2). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **ChatGPT subscription expiry fixed**: recognizes the updated Billing page's "continue to have access ... until" message and canceled, non-renewing plans.
-- **Automatic Billing scan**: standard ChatGPT / Codex usage pages with an empty Subscription URL use the same account's Billing page. Explicit custom URLs take priority; subscription information is cached for six hours.
-- **Missing bonus resets fixed**: supports date-only expiry such as "Expires October 5", legacy AM/PM timestamps and 24-hour times. Waits for asynchronous and progressively loaded reset lists, and keeps each grant's expiry separate.
-- **Date precision preserved**: date-only grants retain the provider's text without inventing an exact expiry time, and remain listed on their expiry date while the page reports them as available.
+- [Download v1.7.3 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.3/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.3). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
+- **Sign in at any time**: every card now has a permanent person button in its header. It remains available while loading, displaying quotas or stale data, showing a scrape error, or paused, even when automatic sign-out detection misses the logout.
+- **Uses the right account session**: opens the service's embedded browser session and preserves isolated account profiles. Closing the browser saves the session and refreshes; paused services refresh after resuming.
+- **Bilingual and accessible**: the button's tooltip and accessible name follow the selected UI language.
 
-Validation: 46 regression checks and 17 isolated WebView2 page checks passed; the GitHub release executable was downloaded and verified. Page checks use screenshot-equivalent DOM fixtures, without a live-account verification.
+Validation: 83 regression checks passed, including 37 card login checks, using an isolated temporary directory. English horizontal and Chinese vertical layouts were inspected. Live-account sign-in was not tested.
 
-See the complete [v1.7.2 release notes](docs/releases/v1.7.2.md). For the glass backdrop fixes see the [v1.7.1 release notes](docs/releases/v1.7.1.md).
+See the complete [v1.7.3 release notes](docs/releases/v1.7.3.md). For the earlier ChatGPT Billing and Reset fixes, see the [v1.7.2 release notes](docs/releases/v1.7.2.md).
 
 ## Features
 
@@ -81,7 +80,7 @@ After upgrading from 1.7.1, start the new exe and refresh; standard usage URLs n
 
 Say your AI service has a usage page at `https://console.example.com/usage` showing "Used 42% this period" and "12 / 50 calls · resets in 3 days".
 
-1. **Sign in**: after saving the service, the card shows "sign in required" — click **Sign in** and log in once in the embedded browser (the session is shared afterwards).
+1. **Sign in**: after saving the service, click the person button (**Sign in**) in the card header to open the embedded browser. This button is always available, including when sign-out goes undetected, stale data is displayed, or the service is paused. Close the browser when done to save the session and refresh (paused services refresh after resuming). Sessions are shared by default; services with **Isolated session** use their own session.
 2. **Service fields**:
    - Name: `Example AI`
    - URL: `https://console.example.com/usage`

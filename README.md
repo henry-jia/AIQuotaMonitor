@@ -16,17 +16,16 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ![横向布局](preview_horizontal.png)
 
-## v1.7.2 更新
+## v1.7.3 更新
 
-- [下载 v1.7.2 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.2/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.2)。无需安装 .NET，运行时需要 WebView2 Runtime。
-- **修复 ChatGPT 订阅到期日**：识别新版 Billing 页「continue to have access … until」文案，以及已取消、不再续订的状态。
-- **自动读取 Billing**：标准 ChatGPT / Codex 用量页未填写订阅信息网址时，自动使用同一账号会话读取 Billing；已有自定义网址优先，订阅信息按六小时缓存。
-- **修复赠送 Reset 漏显示**：支持「Expires October 5」等仅日期格式，兼容旧版 AM/PM 及 24 小时时间；等待异步、逐条加载的重置列表，避免漏掉可用次数或串用下一条的到期日。
-- **保留日期精度**：仅日期的有效期保留页面原文，不显示虚构的具体时间；到期日当天仍保留页面列出的可用次数。
+- [下载 v1.7.3 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.3/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.3)。无需安装 .NET，运行时需要 WebView2 Runtime。
+- **始终可主动登录**：每张卡片标题栏新增人形「去登录 / Sign in」按钮，不再依赖自动识别未登录状态；正常、加载中、抓取失败、显示旧数据和暂停时均可使用。
+- **沿用对应账号会话**：按钮使用该服务的内置浏览器会话；开启「独立会话」时仍保持账号隔离。关闭登录窗口后保存会话并刷新，暂停的服务恢复后再刷新。
+- **中英文与辅助功能**：登录按钮的提示及辅助功能名称随界面语言切换。
 
-验证：46 项回归检查及 17 项隔离 WebView2 页面检查通过，GitHub 发布附件已下载并复核。页面检查使用截图等价 DOM，未访问真实账号进行在线复核。
+验证：83 项回归检查通过（含 37 项卡片登录入口检查；使用独立临时目录），已检查英文横向与中文纵向布局。未访问真实账号进行在线登录验证。
 
-完整说明见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。毛玻璃修复见 [v1.7.1 Release Notes](docs/releases/v1.7.1.md)。
+完整说明见 [v1.7.3 Release Notes](docs/releases/v1.7.3.md)。此前的 ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
 
 ## 功能一览
 
@@ -79,7 +78,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 假设你在用某个 AI 服务，它的控制台有个用量页 `https://console.example.com/usage`，页面上显示「本周期已用 42%」和「12 / 50 次 · 3 天后重置」。
 
-1. **先登录**：设置里添加服务并保存后，卡片会显示「需要登录」，点「去登录」在内置浏览器里登录一次即可（之后共享登录态）。
+1. **先登录**：设置里添加服务并保存后，点卡片标题栏的人形按钮（「去登录」）在内置浏览器里登录。这个入口始终可用，即使程序未识别到已登出、正在显示旧数据或服务已暂停，也能主动登录。登录完成后关闭窗口，程序会保存会话并重新抓取（暂停的服务恢复后再抓取）。默认共享登录态；开启「独立会话」的服务使用自己的会话。
 2. **配服务**：
    - 名称：`示例 AI`
    - 网址：`https://console.example.com/usage`
