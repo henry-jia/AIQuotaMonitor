@@ -18,8 +18,13 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ## What's new in v1.7.2
 
+- [Download v1.7.2 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.2/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.2). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
 - **ChatGPT subscription expiry fixed**: recognizes the updated Billing page's "continue to have access ... until" message and canceled, non-renewing plans.
-- **Missing bonus resets fixed**: supports date-only expiry such as "Expires October 5" and waits for asynchronous reset lists. Date-only grants retain the provider's date text without inventing an exact expiry time.
+- **Automatic Billing scan**: standard ChatGPT / Codex usage pages with an empty Subscription URL use the same account's Billing page. Explicit custom URLs take priority; subscription information is cached for six hours.
+- **Missing bonus resets fixed**: supports date-only expiry such as "Expires October 5", legacy AM/PM timestamps and 24-hour times. Waits for asynchronous and progressively loaded reset lists, and keeps each grant's expiry separate.
+- **Date precision preserved**: date-only grants retain the provider's text without inventing an exact expiry time, and remain listed on their expiry date while the page reports them as available.
+
+Validation: 46 regression checks and 17 isolated WebView2 page checks passed; the GitHub release executable was downloaded and verified. Page checks use screenshot-equivalent DOM fixtures, without a live-account verification.
 
 See the complete [v1.7.2 release notes](docs/releases/v1.7.2.md). For the glass backdrop fixes see the [v1.7.1 release notes](docs/releases/v1.7.1.md).
 
@@ -56,6 +61,21 @@ See the complete [v1.7.2 release notes](docs/releases/v1.7.2.md). For the glass 
 > Put the exe in a stable folder (e.g. `D:\Tools\AIQuotaMonitor\`) — config is saved beside it.
 >
 > **Upgrading:** exit the app from the tray, replace only the old exe, and keep `config.json` beside it. Sign-in state and history remain under `%LOCALAPPDATA%\AIQuotaMonitor\`; no migration is required.
+
+## ChatGPT / Codex setup and upgrade
+
+Add one service per account in Settings and configure quota rules using the text shown on the Usage page:
+
+| Setting | Value |
+| --- | --- |
+| Usage URL | `https://chatgpt.com/settings/usage?tab=overview` |
+| Weekly rule | Percent type; Match text `Weekly limit` (use the actual page text for other languages). Choose any display label. |
+| Subscription URL | Leave empty to use `https://chatgpt.com/settings/billing` automatically. Correct any existing wrong URL to this address or clear it. |
+| Multiple accounts | Enable "Isolated session (multi-account)" for each account's service and sign in separately in the embedded browser. |
+
+When the page shows `23% left`, the card automatically displays **77% used**; no additional Invert setting is needed. Full / Partial reset grants under `Usage limit resets` are scanned automatically. The card shows the available count and earliest expiry, with individual grants in its tooltip. The app reads these grants without using them.
+
+After upgrading from 1.7.1, start the new exe and refresh; standard usage URLs need no additional configuration. If a slow page still omits bonus resets, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas and bonus-reset lists update on every successful scrape.
 
 ## Adding a service (worked example)
 

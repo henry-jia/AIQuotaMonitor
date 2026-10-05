@@ -18,8 +18,13 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ## v1.7.2 更新
 
+- [下载 v1.7.2 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.2/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.2)。无需安装 .NET，运行时需要 WebView2 Runtime。
 - **修复 ChatGPT 订阅到期日**：识别新版 Billing 页「continue to have access … until」文案，以及已取消、不再续订的状态。
-- **修复赠送 Reset 漏显示**：支持「Expires October 5」等仅日期格式，并等待异步加载的重置列表；仅日期的有效期保留原文，不显示虚构的具体时间。
+- **自动读取 Billing**：标准 ChatGPT / Codex 用量页未填写订阅信息网址时，自动使用同一账号会话读取 Billing；已有自定义网址优先，订阅信息按六小时缓存。
+- **修复赠送 Reset 漏显示**：支持「Expires October 5」等仅日期格式，兼容旧版 AM/PM 及 24 小时时间；等待异步、逐条加载的重置列表，避免漏掉可用次数或串用下一条的到期日。
+- **保留日期精度**：仅日期的有效期保留页面原文，不显示虚构的具体时间；到期日当天仍保留页面列出的可用次数。
+
+验证：46 项回归检查及 17 项隔离 WebView2 页面检查通过，GitHub 发布附件已下载并复核。页面检查使用截图等价 DOM，未访问真实账号进行在线复核。
 
 完整说明见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。毛玻璃修复见 [v1.7.1 Release Notes](docs/releases/v1.7.1.md)。
 
@@ -54,6 +59,21 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 > 建议把 exe 放在一个固定目录（如 `D:\Tools\AIQuotaMonitor\`）再运行，配置文件会保存在 exe 旁边。
 >
 > **从旧版本升级**：先从托盘退出程序，再用新版 exe 替换旧 exe；保留同目录的 `config.json`。登录态和历史数据保存在 `%LOCALAPPDATA%\AIQuotaMonitor\`，无需迁移。
+
+## ChatGPT / Codex 设置与升级
+
+在设置里为每个账号添加一个服务，按 Usage 页面上的文字配置规则：
+
+| 项目 | 配置 |
+| --- | --- |
+| 用量网址 | `https://chatgpt.com/settings/usage?tab=overview` |
+| 每周规则 | 类型「百分比」，定位文本 `Weekly limit`（页面语言不同则填写实际文字）；显示标签可自行命名 |
+| 订阅信息网址 | 留空即可自动读取 `https://chatgpt.com/settings/billing`；已有网址若填错，改为这个地址或留空 |
+| 多账号 | 每个账号的服务开启「独立会话（同站点多账号）」，并分别在内置浏览器登录 |
+
+页面显示 `23% left` 时，卡片自动换算为 **已用 77%**，不必额外开启反转。`Usage limit resets` 中的 Full / Partial reset 会自动扫描，卡片显示可用次数与最早到期日，悬停可查看每条信息。程序只读取重置信息，不会使用赠送的 Reset。
+
+从 1.7.1 升级后，启动新版并点击刷新即可；标准用量网址无需新增配置。页面加载较慢、仍缺少 Reset 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额和 Reset 列表则随每次成功抓取更新。
 
 ## 如何添加一个服务（完整示例）
 
