@@ -429,6 +429,7 @@ public partial class MainWindow : Window
                     res.Subscription = prev.Subscription;
                     res.SubscriptionFetchedAt = prev.SubscriptionFetchedAt;
                 }
+                MergeCredits(prev, res);
                 if (res.Status == ScrapeStatus.Ok && svc.Id != null)
                 {
                     _lastGood[svc.Id] = res;
@@ -528,6 +529,18 @@ public partial class MainWindow : Window
         }
     }
 
+    internal static void MergeCredits(ServiceScrapeResult? previous, ServiceScrapeResult current)
+    {
+        if (current.Credits == null)
+        {
+            current.Credits = previous?.Credits;
+            return;
+        }
+        if (previous?.Credits == null) return;
+        current.Credits.ReferenceBalance = Math.Max(current.Credits.Balance,
+            Math.Max(previous.Credits.ReferenceBalance, previous.Credits.Balance));
+    }
+
     /// <summary>合成可显示的「陈旧数据」结果：行用上次成功数据（Status=Ok 使卡片正常渲染行），
     /// 附带陈旧标记由卡片渲染警告行；Time 保留数据的原时间，与警告行一致。</summary>
     private static ServiceScrapeResult ComposeStale(ServiceScrapeResult good, ServiceScrapeResult? failed, bool fromDisk) => new()
@@ -538,6 +551,7 @@ public partial class MainWindow : Window
         Subscription = good.Subscription,
         SubscriptionFetchedAt = good.SubscriptionFetchedAt,
         BonusResets = good.BonusResets,
+        Credits = good.Credits,
         SuggestLogin = failed?.SuggestLogin ?? false,
         StaleError = failed?.ErrorMessage,
         StaleFromDisk = fromDisk,

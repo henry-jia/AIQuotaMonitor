@@ -105,6 +105,30 @@ internal static class ChatGptDomSmoke
                 JsonSerializer.Serialize(Row("October 5") + Row("October 23") + Row("October 30")) + ";},1200);</script>",
                 "October 5", "October 23", "October 30");
             await CheckResets("glm-page", "<section>用量重置额度<p>1次 未使用</p><p>周额度 1次</p></section>", (string?)null);
+
+            async Task CheckCredits(string name, string body, long? balance, bool? auto)
+            {
+                await Navigate(body);
+                var info = await engine.ScanCreditsAsync(wv, service, timeout.Token);
+                checks[name] = balance == null
+                    ? info == null
+                    : info?.Balance == balance && info.ReferenceBalance == balance && info.AutoReload == auto;
+            }
+
+            const string creditHistory = "<h2>Credit usage history</h2><p>Nov 11, 2026</p><p>107 credits</p>";
+            await CheckCredits("credits-off", "<section><h2>Credits</h2><p>50,167 credits remaining</p><div>Automatic reload <input type='checkbox'></div></section>" + creditHistory,
+                50167, false);
+            await CheckCredits("credits-on", "<section><h2>Credits</h2><p>62,500 credits remaining</p><div>Automatic reload <button role='switch' aria-checked='true'></button></div></section>",
+                62500, true);
+            await CheckCredits("credits-delayed", "<section><h2>Credits</h2><div id='credits'></div></section><script>setTimeout(function(){document.getElementById('credits').innerHTML=" +
+                JsonSerializer.Serialize("<p>50,167 credits remaining</p><div>Automatic reload <input type='checkbox'></div>") + ";},1200);</script>",
+                50167, false);
+            await CheckCredits("credits-shadow-dom", "<div id='credit-host'></div><script>document.getElementById('credit-host').attachShadow({mode:'open'}).innerHTML=" +
+                JsonSerializer.Serialize("<section><h2>Credits</h2><p>50,167 credits remaining</p><div>Automatic reload <input type='checkbox' checked></div></section>") + ";</script>",
+                50167, true);
+            await CheckCredits("credits-chinese", "<section><h2>Credits</h2><p>12,345 credits 剩余</p><div>自动充值 <input type='checkbox'></div></section>",
+                12345, false);
+            await CheckCredits("credits-history-is-not-balance", creditHistory, null, null);
         }
         catch (Exception ex) { errorCode = ex.GetType().Name; }
         finally
@@ -113,7 +137,7 @@ internal static class ChatGptDomSmoke
             host?.Close();
         }
 
-        bool success = errorCode == null && checks.Count == 17 && checks.Values.All(v => v);
+        bool success = errorCode == null && checks.Count == 23 && checks.Values.All(v => v);
         string fullOutputPath = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullOutputPath)!);
         File.WriteAllText(fullOutputPath, JsonSerializer.Serialize(new { success, checks, errorCode },

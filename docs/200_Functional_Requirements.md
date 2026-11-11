@@ -29,6 +29,13 @@
 - When expiry is only visible behind a "manage resets" dialog (GLM), the scraper shall open the dialog, read the per-entry expiry, and close it again; any failure in this scan shall not affect the quota result.
 - The card shall show the total available count and the earliest expiry (formatted like other reset times, warning color inside 24 hours); already-expired entries shall be hidden.
 
+## Codex credits
+
+- Standard ChatGPT / Codex usage pages shall scan the current Credits balance and automatic-reload switch without extra configuration or navigation. Credit usage-history entries are not balance values; scan failures shall not affect quota results.
+- The Credits monitor shall appear directly below the weekly quota (or at the card end if no weekly label is recognized), showing current balance, locally observed consumption, and automatic-reload state.
+- Because ChatGPT provides no fixed Credits total, the bar shall represent the remaining share of the highest balance observed locally. That reference is persisted with the last successful result and rises automatically after a reload or grant; it shall not be presented as an official percentage.
+- A failed best-effort Credits scan shall retain the previous balance snapshot, and stale whole-card fallback shall include Credits.
+
 ## Window summoning
 
 - While the widget is visible it may take a taskbar slot ("Show in taskbar", default on) so a window covered by others is one taskbar click away; hiding to tray shall remove the slot.

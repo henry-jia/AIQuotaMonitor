@@ -243,6 +243,13 @@ public static class TestShot
                 },
                 Subscription = new SubscriptionInfo { ExpireAt = DateTime.Now.AddDays(4), AutoRenew = true },
                 SubscriptionFetchedAt = DateTimeOffset.Now,
+                Credits = new CreditBalanceInfo
+                {
+                    Balance = 50167,
+                    ReferenceBalance = 62500,
+                    AutoReload = false,
+                    FetchedAt = DateTimeOffset.Now,
+                },
             },
             // 需要登录
             [b] = new ServiceScrapeResult { Service = b, Status = ScrapeStatus.NeedLogin },

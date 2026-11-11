@@ -266,6 +266,18 @@ public class BonusReset
     public string? RawText;
 }
 
+/// <summary>Codex Credits 余额。官方没有固定总额度，进度条以本机见过的最高余额为基准。</summary>
+public class CreditBalanceInfo
+{
+    public long Balance;
+    public long ReferenceBalance;
+    public bool? AutoReload;
+    public DateTimeOffset FetchedAt;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long Used => Math.Max(0, ReferenceBalance - Balance);
+}
+
 public class RuleResult
 {
     public string Label = "";
@@ -291,6 +303,7 @@ public class ServiceScrapeResult
     public DateTimeOffset? SubscriptionFetchedAt;
     /// <summary>赠送的用量重置次数（Codex/智谱；无此功能的供应商为空列表）。</summary>
     public List<BonusReset> BonusResets = new();
+    public CreditBalanceInfo? Credits;
     public DateTimeOffset Time = DateTimeOffset.Now;
 
     /// <summary>陈旧数据回退：非 null 表示本结果是「上次成功数据 + 本次刷新失败」的合成视图，

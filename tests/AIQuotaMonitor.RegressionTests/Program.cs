@@ -17,6 +17,10 @@ var cardChecks = ServiceCardLoginTests.Run();
 checks += cardChecks.Checks;
 failures.AddRange(cardChecks.Failures);
 foreach (var failure in cardChecks.Failures) Console.Error.WriteLine(failure);
+var creditCardChecks = ServiceCardCreditsTests.Run();
+checks += creditCardChecks.Checks;
+failures.AddRange(creditCardChecks.Failures);
+foreach (var failure in creditCardChecks.Failures) Console.Error.WriteLine(failure);
 if (args.Contains("--card-login-only"))
 {
     Console.WriteLine($"{(failures.Count == 0 ? "PASS" : "FAIL")} card login {checks - failures.Count}/{checks}");
@@ -269,6 +273,40 @@ checks++;
 if (ScrapeEngine.ParseBonusPayload("", now, out _).Count != 0 ||
     ScrapeEngine.ParseBonusPayload("not-json", now, out _).Count != 0)
     failures.Add("Malformed bonus-reset payloads must yield no entries.");
+
+// Codex Credits：余额与自动充值开关解析、最高余额基准合并。
+checks++;
+var creditsNow = DateTimeOffset.Now;
+var credits = ScrapeEngine.ParseCreditsPayload("""{"balance":"50,167","auto":"off"}""", creditsNow);
+if (credits?.Balance != 50167 || credits.ReferenceBalance != 50167 || credits.AutoReload != false || credits.FetchedAt != creditsNow)
+    failures.Add("Standard Codex credits balance/auto-reload payload was not parsed correctly.");
+
+checks++;
+var creditsOn = ScrapeEngine.ParseCreditsPayload("""{"balance":"12500","auto":"on"}""", creditsNow);
+var creditsZh = ScrapeEngine.ParseCreditsPayload("""{"balance":"12,345","auto":""}""", creditsNow);
+if (creditsOn?.AutoReload != true || creditsZh?.Balance != 12345 || creditsZh.AutoReload != null ||
+    ScrapeEngine.ParseCreditsPayload("not-json", creditsNow) != null ||
+    ScrapeEngine.ParseCreditsPayload("""{"balance":"not-a-number","auto":"off"}""", creditsNow) != null)
+    failures.Add("Credits parsing must support on/unknown switch states and reject malformed balances.");
+
+checks++;
+var previousResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 50167, ReferenceBalance = 62500, AutoReload = false } };
+var currentResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 49000, ReferenceBalance = 49000, AutoReload = false } };
+MainWindow.MergeCredits(previousResult, currentResult);
+if (currentResult.Credits.ReferenceBalance != 62500 || currentResult.Credits.Used != 13500)
+    failures.Add("Credit consumption must be measured against the persisted local high balance.");
+
+checks++;
+var reloadedResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 70000, ReferenceBalance = 70000 } };
+MainWindow.MergeCredits(previousResult, reloadedResult);
+if (reloadedResult.Credits.ReferenceBalance != 70000 || reloadedResult.Credits.Used != 0)
+    failures.Add("A credit reload must raise the local reference balance and reset displayed consumption.");
+
+checks++;
+var missingCredits = new ServiceScrapeResult();
+MainWindow.MergeCredits(previousResult, missingCredits);
+if (!ReferenceEquals(previousResult.Credits, missingCredits.Credits))
+    failures.Add("A best-effort credits scan failure should retain the previous balance snapshot.");
 
 // 多账户：独立会话开关随配置序列化（camelCase），编辑副本不丢
 checks++;

@@ -16,16 +16,16 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ![横向布局](preview_horizontal.png)
 
-## v1.7.5 更新
+## v1.8.0 更新
 
-- [下载 v1.7.5 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.5/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.5)。无需安装 .NET，运行时需要 WebView2 Runtime。
-- **修复已登录仍抓取失败**：使用 `/#settings/Usage` 等 hash 路由时，背景网页可能保留登录前的 `session expired` 状态。现在相同页面或 hash 路由再次抓取时会载入新文件，读取当前会话与配额。
-- **导航结果正确对应**：只接收本次导航的完成事件，避免旧导航被取消时提前开始抓取；已取消的任务不会继续打开新页面。
-- **保留账号隔离和主动登录入口**：每张卡片的人形 Sign in 按钮继续可用，独立账号仍使用各自的浏览器 profile；真正登出时不会把旧配额标为成功。
+- [下载 v1.8.0 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.0/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.0)。无需安装 .NET，运行时需要 WebView2 Runtime。
+- **新增 Codex Credits 监控**：每周用量下方显示当前余额、累计已用数量和自动充值状态，周配额用完后也能继续掌握 Credit 消耗。
+- **不虚报官方百分比**：官方没有提供 Credits 固定总额度，条形以本机记录的最高余额为基准；充值或赠送后自动抬高基准，并随上次成功结果保存。
+- **自动识别，无需配置**：在原 Usage 页面一并读取余额与开关，支持延迟渲染和 Shadow DOM，不会把 Credit 扣费历史当成余额；扫描失败保留上次快照，不影响其他配额。
 
-验证：84 项回归、9 项真实 WebView2 导航检查及 17 项 ChatGPT 页面检查通过。导航检查已加入 GitHub CI，使用本地等价页面与独立临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
+验证：98 项回归、23 项 ChatGPT 页面检查及 9 项真实 WebView2 导航检查通过；中文横向与英文纵向截图检查通过。测试使用本地等价页面与临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
 
-完整说明见 [v1.7.5 Release Notes](docs/releases/v1.7.5.md)。主动登录入口见 [v1.7.3 Release Notes](docs/releases/v1.7.3.md)；ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
+完整说明见 [v1.8.0 Release Notes](docs/releases/v1.8.0.md)。上一版导航修复见 [v1.7.5 Release Notes](docs/releases/v1.7.5.md)；ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
 
 ## 功能一览
 
@@ -48,6 +48,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 - **开机自启**（全局设置可选，当前用户 Run 注册表项）；窗口位置掉出所有屏幕时自动夹回/居中
 - WebView2 默认使用共享用户数据目录（`%LOCALAPPDATA%\AIQuotaMonitor\WebView2UserData`），**同一域名只需登录一次**；服务在设置里勾选「**独立会话（同站点多账号）**」后改用独立 profile 与独立 Cookie 存储，**同一供应商可挂多个账号**并排监控（各自登录一次）
 - **赠送重置次数**（Codex「Usage limit resets」、智谱「用量重置额度」）：卡片显示可用次数与最早到期时间（24 小时内变黄提醒）；智谱每条的到期时间在「重置管理」弹层里，抓取时自动点开读取再关闭；已过期的次数自动隐藏
+- **Codex Credits 监控**：在每周用量下显示当前余额、相对本机最高余额的累计消耗与自动充值状态；余额升高时自动更新基准，无需额外配置
 
 ## 快速开始
 
@@ -72,7 +73,9 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 页面显示 `23% left` 时，卡片自动换算为 **已用 77%**，不必额外开启反转。`Usage limit resets` 中的 Full / Partial reset 会自动扫描，卡片显示可用次数与最早到期日，悬停可查看每条信息。程序只读取重置信息，不会使用赠送的 Reset。
 
-从 1.7.1 升级后，启动新版并点击刷新即可；标准用量网址无需新增配置。页面加载较慢、仍缺少 Reset 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额和 Reset 列表则随每次成功抓取更新。
+`Credits` 区块也会自动扫描，监控条紧跟每周用量，显示余额、已用数量与自动充值状态。官方没有提供 Credits 固定总额度，因此条形以本机记录的最高余额为基准，而非官方百分比；充值或赠送后基准自动上调，该基准随上次成功结果保存在本机。
+
+从 1.7.5 升级到 1.8.0 后，启动新版并点击刷新即可；标准用量网址无需新增配置。页面加载较慢、仍缺少 Reset 或 Credits 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额、Reset 列表和 Credits 则随每次成功抓取更新。
 
 ## 如何添加一个服务（完整示例）
 

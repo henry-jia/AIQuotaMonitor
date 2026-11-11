@@ -1,5 +1,19 @@
 # Change Log
 
+## [20261111] Release v1.8.0
+- **類型**：Release
+- **影響範圍**：assembly/file/package versions, bilingual README, release notes, Windows x64 self-contained package
+- **內容**：Ship Codex Credits monitoring as v1.8.0. Updated all application version fields to 1.8.0.0, moved both README download links and what's-new sections to v1.8.0, and documented upgrade and validation results in the new release notes.
+- **關聯文件**：`app/AIQuotaMonitor.csproj`, `README.md`, `README.en.md`, `docs/releases/v1.8.0.md`, `docs/220_Change_Log.md`
+- **操作人**：Kimi
+
+## [20261111] Add Codex Credits monitoring
+- **類型**：Feature
+- **影響範圍**：ChatGPT Usage scraping, credits result model and persistence, service-card UI, regression/DOM tests, documentation
+- **內容**：Codex cards now show Credits directly below weekly usage: current balance, consumption from the locally persisted highest balance, and automatic-reload state. The bar uses that local high rather than inventing an official total, rises after reloads/grants, and retains the prior snapshot if the best-effort scan fails. Added balance/switch parsing and placement tests plus WebView2 fixtures for delayed rendering, open shadow roots, Chinese text, and exclusion of credit-history entries.
+- **關聯文件**：`app/ScrapeEngine.cs`, `app/Models.cs`, `app/MainWindow.xaml.cs`, `app/ServiceCard.xaml.cs`, `tests/AIQuotaMonitor.RegressionTests/`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Kimi
+
 ## [20260922] README what's-new updated for v1.7.1
 - **類型**：Docs
 - **影響範圍**：README.md, README.en.md

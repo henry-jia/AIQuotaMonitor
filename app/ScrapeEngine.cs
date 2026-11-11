@@ -59,15 +59,16 @@ public sealed class ScrapeEngine
     public CoreWebView2Environment? Env => _shared.Env;
     internal string? SessionRestoreErrorCode { get; private set; }
 
+    internal static bool IsChatGptUsage(ServiceConfig service) =>
+        Uri.TryCreate(service.Url, UriKind.Absolute, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("chatgpt.com", StringComparison.OrdinalIgnoreCase) &&
+        uri.AbsolutePath.TrimEnd('/') is "/settings/usage" or "/codex/settings/usage";
+
     /// <summary>Keep explicit overrides; ChatGPT usage pages have a known separate billing page.</summary>
     internal static string? GetSubscriptionUrl(ServiceConfig service)
     {
         if (!string.IsNullOrWhiteSpace(service.SubscriptionUrl)) return service.SubscriptionUrl;
-        if (Uri.TryCreate(service.Url, UriKind.Absolute, out var uri) &&
-            uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("chatgpt.com", StringComparison.OrdinalIgnoreCase) &&
-            uri.AbsolutePath.TrimEnd('/') is "/settings/usage" or "/codex/settings/usage")
-            return "https://chatgpt.com/settings/billing";
-        return null;
+        return IsChatGptUsage(service) ? "https://chatgpt.com/settings/billing" : null;
     }
 
     private IEnumerable<BrowserSession> AllSessions()
@@ -300,8 +301,8 @@ public sealed class ScrapeEngine
                 result.Status = ScrapeStatus.Ok;
             }
 
-            // 6) 用量页补充扫描：赠送重置次数 + （无独立订阅页时）订阅信息，两者都必须在用量页面上
-            //    执行——4b 若导航进了跨域 iframe 须先回到原用量页，否则会扫到 iframe 页面
+            // 6) 用量页补充扫描：Credits、赠送重置次数与订阅信息都必须在原用量页面上执行；
+            //    4b 若导航进了跨域 iframe 须先回到原用量页，否则会扫到 iframe 页面
             if (result.Status == ScrapeStatus.Ok)
             {
                 if (navigatedIntoFrame)
@@ -321,6 +322,8 @@ public sealed class ScrapeEngine
                     if (result.Subscription != null)
                         result.SubscriptionFetchedAt = DateTimeOffset.Now;
                 }
+                if (IsChatGptUsage(service))
+                    result.Credits = await ScanCreditsAsync(wv, service, ct);
                 await ScanBonusResetsAsync(wv, result, ct);
                 // 7) 独立订阅页（如智谱套餐概览、Codex Billing）：导航过去扫订阅信息
                 if (fetchSubscription && !string.IsNullOrWhiteSpace(subscriptionUrl))
@@ -612,6 +615,115 @@ public sealed class ScrapeEngine
                 return info.ExpireAt == null && info.AutoRenew == null ? null : info;
             }
             await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
+        }
+    }
+
+    // ---------- Codex Credits ----------
+
+    private const string CreditsPageScanScript = """
+    (function () {
+      try {
+        function collectDocs(root) {
+          var docs = [root];
+          for (var di = 0; di < docs.length; di++) {
+            var frames = docs[di].querySelectorAll("iframe");
+            for (var fi = 0; fi < frames.length; fi++) {
+              try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
+            }
+            var els = docs[di].querySelectorAll("*");
+            for (var si = 0; si < els.length; si++) {
+              if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+            }
+          }
+          return docs;
+        }
+        function parentOf(el) {
+          if (!el) return null;
+          if (el.parentElement) return el.parentElement;
+          try { var r = el.getRootNode && el.getRootNode(); if (r && r.host) return r.host; } catch (e) {}
+          return null;
+        }
+        var docs = collectDocs(document);
+        var t = "";
+        for (var d0 = 0; d0 < docs.length; d0++) {
+          try { t += (((docs[d0].body && docs[d0].body.innerText) || docs[d0].textContent || "")) + "\n"; } catch (e) {}
+        }
+        // Only the balance says "credits remaining"; history entries say "N credits".
+        var m = t.match(/([\d,]+)\s+credits\s+remaining/i) ||
+          t.match(/([\d,]+)\s*(?:credits|积分)\s*剩余/i) ||
+          t.match(/剩余\s*([\d,]+)\s*(?:credits|积分)/i);
+        var auto = "";
+        for (var d = 0; d < docs.length && !auto; d++) {
+          var all = docs[d].querySelectorAll("*");
+          for (var i = 0; i < all.length; i++) {
+            var label = (all[i].innerText || "").replace(/\s+/g, "");
+            if (!/^Automaticreload$/i.test(label) && label !== "自动充值" && label !== "自动重新加载") continue;
+            var node = all[i];
+            for (var depth = 0; depth <= 4 && node; depth++) {
+              var sw = node.querySelector("[role=switch], input[type=checkbox], [aria-checked]");
+              if (sw) {
+                auto = (sw.getAttribute("aria-checked") === "true" || sw.checked === true) ? "on" : "off";
+                break;
+              }
+              node = parentOf(node);
+            }
+            if (auto) break;
+          }
+        }
+        if (!auto) {
+          var am = t.match(/Automatic\s+reload[\s\S]{0,30}?\b(On|Off)\b/i);
+          if (am) auto = am[1].toLowerCase();
+        }
+        return JSON.stringify({ balance: m ? m[1] : "", auto: auto });
+      } catch (e) { return JSON.stringify({ balance: "", auto: "" }); }
+    })()
+    """;
+
+    internal async Task<CreditBalanceInfo?> ScanCreditsAsync(CoreWebView2 wv, ServiceConfig service, CancellationToken ct)
+    {
+        try
+        {
+            var deadline = DateTime.Now + TimeSpan.FromSeconds(Math.Max(2, service.ExtraWaitSeconds));
+            CreditBalanceInfo? latest = null;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                var now = DateTimeOffset.Now;
+                var current = ParseCreditsPayload(await EvalStringAsync(wv, CreditsPageScanScript), now);
+                if (current != null) latest = current;
+                if ((latest?.AutoReload != null && latest.Balance >= 0) || DateTime.Now >= deadline) return latest;
+                await Task.Delay(500, ct);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    internal static CreditBalanceInfo? ParseCreditsPayload(string payload, DateTimeOffset now)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            var root = doc.RootElement;
+            string balance = root.TryGetProperty("balance", out var b) && b.ValueKind == JsonValueKind.String
+                ? b.GetString() ?? "" : "";
+            if (!long.TryParse(balance.Replace(",", ""), NumberStyles.None, CultureInfo.InvariantCulture, out long value))
+                return null;
+            string auto = root.TryGetProperty("auto", out var a) && a.ValueKind == JsonValueKind.String
+                ? a.GetString() ?? "" : "";
+            return new CreditBalanceInfo
+            {
+                Balance = value,
+                ReferenceBalance = value,
+                AutoReload = auto switch { "on" => true, "off" => false, _ => null },
+                FetchedAt = now,
+            };
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return null;
         }
     }
 

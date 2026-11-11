@@ -214,8 +214,18 @@ public partial class ServiceCard : UserControl
         }
         if (result.StaleError != null || result.StaleFromDisk)
             RowsPanel.Children.Add(BuildStaleWarning(result));
+        bool creditsAdded = false;
         foreach (var rule in result.Rules)
+        {
             RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg, result.Subscription?.ExpireAt?.LocalDateTime), rule.Label));
+            if (!creditsAdded && result.Credits != null && PaceBaseline.WindowHours(rule.Label) == 7 * 24)
+            {
+                RowsPanel.Children.Add(BuildCreditsRow(result.Credits, _theme));
+                creditsAdded = true;
+            }
+        }
+        if (!creditsAdded && result.Credits != null)
+            RowsPanel.Children.Add(BuildCreditsRow(result.Credits, _theme));
     }
 
     /// <summary>陈旧数据警告行：刷新失败显示「刷新失败——显示 HH:mm 的数据」（tooltip 完整错误）；
@@ -348,6 +358,66 @@ public partial class ServiceCard : UserControl
     private void ViewPage_Click(object sender, RoutedEventArgs e)
     {
         if (_service != null) RequestViewPage?.Invoke(_service);
+    }
+
+    private static FrameworkElement BuildCreditsRow(CreditBalanceInfo credits, ResolvedTheme theme)
+    {
+        long reference = Math.Max(credits.Balance, credits.ReferenceBalance);
+        long used = Math.Max(0, reference - credits.Balance);
+        double remaining = reference > 0 ? Math.Clamp(credits.Balance * 100.0 / reference, 0, 100) : 0;
+        var barColor = credits.Balance == 0 ? theme.Critical : theme.Normal;
+        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 9) };
+
+        var top = new Grid();
+        top.Children.Add(new TextBlock
+        {
+            Text = I18n.T("credits_balance"),
+            Foreground = Ui.Brush("#C9C9D1"),
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        top.Children.Add(new TextBlock
+        {
+            Text = credits.Balance.ToString("N0"),
+            Foreground = new SolidColorBrush(barColor),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        });
+        panel.Children.Add(top);
+
+        var grid = new Grid { Height = 7, Margin = new Thickness(0, 5, 0, 0) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(remaining, 0.0001), GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(100 - remaining, 0.0001), GridUnitType.Star) });
+        var track = new Border { CornerRadius = new CornerRadius(3.5), Background = Ui.Brush("#1FFFFFFF") };
+        Grid.SetColumnSpan(track, 2);
+        grid.Children.Add(track);
+        grid.Children.Add(new Border
+        {
+            CornerRadius = new CornerRadius(3.5),
+            Background = new SolidColorBrush(barColor),
+        });
+        panel.Children.Add(grid);
+
+        string auto = credits.AutoReload switch
+        {
+            true => I18n.T("credits_auto_reload_on"),
+            false => I18n.T("credits_auto_reload_off"),
+            null => I18n.T("credits_auto_reload_unknown"),
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = I18n.T("credits_used", used.ToString("N0")) + " · " + auto,
+            Foreground = Ui.Brush("#8A8A95"),
+            FontSize = 10.5,
+            Margin = new Thickness(0, 3, 0, 0),
+        });
+        panel.ToolTip = I18n.T("credits_tooltip",
+            credits.Balance.ToString("N0"), reference.ToString("N0"),
+            credits.FetchedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        System.Windows.Automation.AutomationProperties.SetName(panel,
+            I18n.T("credits_balance") + " " + credits.Balance.ToString("N0"));
+        return panel;
     }
 
     private static FrameworkElement BuildRow(RuleResult rule, ResolvedTheme theme, AppConfig cfg,

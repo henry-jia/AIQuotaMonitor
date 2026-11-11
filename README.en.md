@@ -16,16 +16,16 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.7.5
+## What's new in v1.8.0
 
-- [Download v1.7.5 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.7.5/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.7.5). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **Scraping recovers after sign-in**: hash routes such as `/#settings/Usage` could leave the background page displaying its old `session expired` state after the login window was authenticated. Repeated document and hash-route navigation now loads a fresh document and reads the current session and quota.
-- **Navigation completion is matched correctly**: only the current navigation's completion event can release the scrape. Canceled work cannot start another page load.
-- **Account isolation and manual sign-in preserved**: the permanent person button remains available, isolated accounts retain their own browser profiles, and genuine logout cannot turn stale quota into a successful result.
+- [Download v1.8.0 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.0/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.0). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
+- **New Codex Credits monitor**: below weekly usage, see current balance, amount consumed, and automatic-reload state, so Credit spending remains visible after the plan quota is exhausted.
+- **No invented official percentage**: ChatGPT provides no fixed Credits total. The bar uses the highest balance observed locally, raises that reference after reloads or grants, and persists it with the last successful result.
+- **Automatic and isolated from quota failures**: balance and switch state are read on the existing Usage page, including delayed rendering and open shadow roots. Credit-history entries are excluded, and a failed scan retains the previous snapshot without affecting other quotas.
 
-Validation: 84 regression checks, 9 real WebView2 navigation checks and 17 ChatGPT page checks passed. Navigation checks now run in GitHub CI using local fixtures and temporary profiles, without reading real account cookies. Live-account verification has not been performed.
+Validation: 98 regression checks, 23 ChatGPT page checks and 9 real WebView2 navigation checks passed; Chinese horizontal and English vertical screenshots were inspected. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
 
-See the complete [v1.7.5 release notes](docs/releases/v1.7.5.md). The manual sign-in entry was added in [v1.7.3](docs/releases/v1.7.3.md); earlier ChatGPT Billing and Reset fixes are documented in [v1.7.2](docs/releases/v1.7.2.md).
+See the complete [v1.8.0 release notes](docs/releases/v1.8.0.md). The previous navigation fix is documented in [v1.7.5](docs/releases/v1.7.5.md); earlier ChatGPT Billing and Reset fixes are documented in [v1.7.2](docs/releases/v1.7.2.md).
 
 ## Features
 
@@ -49,6 +49,7 @@ See the complete [v1.7.5 release notes](docs/releases/v1.7.5.md). The manual sig
 - **Launch at Windows startup** (optional in global settings, per-user Run registry entry); a saved window position that lands outside all screens is clamped back / centered
 - Shared WebView2 user-data folder (`%LOCALAPPDATA%\AIQuotaMonitor\WebView2UserData`) — **one login per domain**; a per-service **"Isolated session (multi-account)"** toggle gives that service its own profile and cookie store, so **multiple accounts at the same provider** can be monitored side by side (each signs in once); cookies (including session cookies) are saved after every scrape outcome, when the login window closes, and on graceful exit, using DPAPI encryption plus atomic replacement, then restored on startup
 - **Bonus usage resets** (Codex "Usage limit resets", GLM "用量重置额度"): the card shows the available count and earliest expiry (turns yellow within 24 hours); GLM's per-entry expiry lives behind the "重置管理" dialog, which the scraper opens and closes automatically; expired entries are hidden
+- **Codex Credits monitoring**: below weekly usage, see current balance, consumption relative to the locally observed high, and automatic-reload state; the reference rises automatically when credits are added, with no extra configuration
 - **English / 中文 UI** (follows system by default, quick-switch via right-click menu)
 
 ## Quick start
@@ -74,7 +75,9 @@ Add one service per account in Settings and configure quota rules using the text
 
 When the page shows `23% left`, the card automatically displays **77% used**; no additional Invert setting is needed. Full / Partial reset grants under `Usage limit resets` are scanned automatically. The card shows the available count and earliest expiry, with individual grants in its tooltip. The app reads these grants without using them.
 
-After upgrading from 1.7.1, start the new exe and refresh; standard usage URLs need no additional configuration. If a slow page still omits bonus resets, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas and bonus-reset lists update on every successful scrape.
+The `Credits` section is scanned automatically too. Its monitor sits below weekly usage and shows balance, amount used, and automatic-reload state. ChatGPT provides no fixed Credits total, so the bar uses the highest balance observed locally rather than an official percentage. Reloads or grants raise that reference automatically; it is stored locally with the last successful result.
+
+After upgrading from 1.7.5 to 1.8.0, start the new exe and refresh; standard usage URLs need no additional configuration. If a slow page still omits bonus resets or Credits, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas, bonus-reset lists, and Credits update on every successful scrape.
 
 ## Adding a service (worked example)
 

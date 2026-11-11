@@ -36,7 +36,7 @@ Direction: Modern Minimal with Tech Utility density. This records the existing p
 - Glass shell: DWM Acrylic blur, restrained tint, one hairline border, and a subtle top reflection.
 - Cards: translucent solid layer for legibility; cards do not add a second blur.
 - Icon buttons: transparent by default, white hover wash, subdued pressed state, visible disabled state.
-- Progress bars: color communicates quota state; baseline ticks remain secondary.
+- Progress bars: color communicates quota state; baseline ticks remain secondary. Credits uses the same compact bar grammar, but its fill is explicitly relative to the locally observed highest balance rather than an official total.
 
 ## 6. Motion
 
