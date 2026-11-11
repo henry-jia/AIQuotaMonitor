@@ -33,7 +33,8 @@
 
 - Standard ChatGPT / Codex usage pages, including the legacy `https://chatgpt.com/#settings/Usage` hash route, shall scan the current Credits balance and automatic-reload switch without extra configuration or navigation. Credit usage-history entries are not balance values; scan failures shall not affect quota results.
 - The Credits monitor shall appear directly below the weekly quota (or at the card end if no weekly label is recognized), showing current balance, locally observed consumption, and automatic-reload state.
-- Because ChatGPT provides no fixed Credits total, the bar shall represent the remaining share of the highest balance observed locally. That reference is persisted with the last successful result and rises automatically after a reload or grant; it shall not be presented as an official percentage.
+- Each service shall have a configurable Credits limit defaulting to 62500. The setting appears in the service editor only for ChatGPT/Codex Usage URLs, persists as `creditsLimit`, and applies immediately after saving so different accounts can use different limits.
+- The bar shall represent the remaining share of the configured limit, and displayed consumption shall be `max(0, limit - balance)`; balances above the limit produce a full bar and never negative consumption. The configured limit shall not be presented as an official provider total.
 - A failed best-effort Credits scan shall retain the previous balance snapshot, and stale whole-card fallback shall include Credits.
 
 ## Window summoning

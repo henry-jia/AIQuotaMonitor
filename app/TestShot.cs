@@ -200,7 +200,7 @@ public static class TestShot
         {
             Id = "sample-a",
             Name = "星言 Pro",
-            Url = "https://example.com/usage",
+            Url = "https://chatgpt.com/settings/usage?tab=overview",
             ExtraWaitSeconds = 3,
             Rules = new List<QuotaRule>
             {
@@ -246,7 +246,6 @@ public static class TestShot
                 Credits = new CreditBalanceInfo
                 {
                     Balance = 50167,
-                    ReferenceBalance = 62500,
                     AutoReload = false,
                     FetchedAt = DateTimeOffset.Now,
                 },

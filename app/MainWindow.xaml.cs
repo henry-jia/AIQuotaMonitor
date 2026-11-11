@@ -531,14 +531,7 @@ public partial class MainWindow : Window
 
     internal static void MergeCredits(ServiceScrapeResult? previous, ServiceScrapeResult current)
     {
-        if (current.Credits == null)
-        {
-            current.Credits = previous?.Credits;
-            return;
-        }
-        if (previous?.Credits == null) return;
-        current.Credits.ReferenceBalance = Math.Max(current.Credits.Balance,
-            Math.Max(previous.Credits.ReferenceBalance, previous.Credits.Balance));
+        if (current.Credits == null) current.Credits = previous?.Credits;
     }
 
     /// <summary>合成可显示的「陈旧数据」结果：行用上次成功数据（Status=Ok 使卡片正常渲染行），

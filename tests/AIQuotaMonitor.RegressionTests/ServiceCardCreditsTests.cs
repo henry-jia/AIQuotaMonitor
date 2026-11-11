@@ -35,7 +35,6 @@ internal static class ServiceCardCreditsTests
                     Credits = new CreditBalanceInfo
                     {
                         Balance = 50167,
-                        ReferenceBalance = 62500,
                         AutoReload = false,
                         FetchedAt = DateTimeOffset.Now,
                     },
@@ -51,17 +50,40 @@ internal static class ServiceCardCreditsTests
                     var texts = DescendantTexts(creditRow).ToList();
                     Check(texts.Contains("Credits balance"), "Credits row must have a localized balance label.");
                     Check(texts.Any(t => t.Contains("Used 12,333") && t.Contains("Auto-reload off")),
-                        "Credits row must show local consumption and automatic reload state.");
+                        "Credits row must use the default 62500 limit and show automatic reload state.");
                     var bar = creditRow.Children.OfType<Grid>().FirstOrDefault(g => g.ColumnDefinitions.Count == 2);
                     Check(bar != null && Math.Abs(bar.ColumnDefinitions[0].Width.Value - 50167 * 100.0 / 62500) < 0.001,
-                        "Credits bar must represent the remaining share of the local high balance.");
+                        "Credits bar must represent the remaining share of the configured limit.");
                 }
+
+                service.CreditsLimit = 100000;
+                card.Bind(new ServiceScrapeResult
+                {
+                    Service = service,
+                    Rules = new List<RuleResult> { new() { Label = "Weekly usage", Percent = 100 } },
+                    Credits = new CreditBalanceInfo { Balance = 50167, AutoReload = true },
+                }, new AppConfig());
+                Check(DescendantTexts(rows.Children[1]).Any(t => t.Contains("Used 49,833")),
+                    "A custom Credits limit must immediately change displayed consumption.");
+                var customBar = ((StackPanel)rows.Children[1]).Children.OfType<Grid>().First(g => g.ColumnDefinitions.Count == 2);
+                Check(Math.Abs(customBar.ColumnDefinitions[0].Width.Value - 50.167) < 0.001,
+                    "A custom Credits limit must immediately change the bar ratio.");
+
+                service.CreditsLimit = 62500;
+                card.Bind(new ServiceScrapeResult
+                {
+                    Service = service,
+                    Rules = new List<RuleResult> { new() { Label = "Weekly usage", Percent = 100 } },
+                    Credits = new CreditBalanceInfo { Balance = 70000 },
+                }, new AppConfig());
+                Check(DescendantTexts(rows.Children[1]).Any(t => t.Contains("Used 0")),
+                    "Credits consumption must not become negative above the configured limit.");
 
                 card.Bind(new ServiceScrapeResult
                 {
                     Service = service,
                     Rules = new List<RuleResult> { new() { Label = "Custom quota", Percent = 10 } },
-                    Credits = new CreditBalanceInfo { Balance = 100, ReferenceBalance = 100, AutoReload = true },
+                    Credits = new CreditBalanceInfo { Balance = 100, AutoReload = true },
                 }, new AppConfig());
                 Check(rows.Children.Count == 2 && AutomationProperties.GetName(rows.Children[1])?.Contains("100") == true,
                     "Credits must fall back to the card end when no weekly label can be identified.");
@@ -71,7 +93,7 @@ internal static class ServiceCardCreditsTests
                 {
                     Service = service,
                     Rules = new List<RuleResult> { new() { Label = "每周用量", Percent = 100 } },
-                    Credits = new CreditBalanceInfo { Balance = 100, ReferenceBalance = 100 },
+                    Credits = new CreditBalanceInfo { Balance = 100 },
                 }, new AppConfig());
                 Check(rows.Children.Count == 2 && DescendantTexts(rows.Children[1]).Contains("Credits 余额"),
                     "Credits label must follow the Chinese UI language.");

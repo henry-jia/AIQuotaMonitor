@@ -508,13 +508,15 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <TextBlock x:Name="LblName" Grid.Row="0" Text="Name" Style="{StaticResource FieldLabel}"/>
                                         <TextBox Grid.Row="0" Grid.Column="1" Margin="0,3"
                                                  Text="{Binding SelectedItem.Name, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"/>
                                         <TextBlock x:Name="LblUrl" Grid.Row="1" Text="URL" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,3"
-                                                 Text="{Binding SelectedItem.Url, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox x:Name="UrlBox" Grid.Row="1" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.Url, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextChanged="UrlBox_TextChanged"/>
                                         <TextBlock x:Name="LblExtraWait" Grid.Row="2" Text="Extra wait (sec)" Style="{StaticResource FieldLabel}"
                                                    ToolTip="Seconds to wait after page load; 2~5s recommended for SPA pages"/>
                                         <TextBox x:Name="ExtraWaitBox" Grid.Row="2" Grid.Column="1" Margin="0,3"
@@ -535,6 +537,10 @@
                                         <TextBox x:Name="SubUrlBox" Grid.Row="5" Grid.Column="1" Margin="0,3"
                                                  Text="{Binding SelectedItem.SubscriptionUrl, ElementName=ServiceList, UpdateSourceTrigger=PropertyChanged}"
                                                  ToolTip="Optional. Page containing subscription expiry/auto-renew info; empty = search on the usage page"/>
+                                        <TextBlock x:Name="LblCreditsLimit" Grid.Row="6" Text="Credits limit" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="CreditsLimitBox" Grid.Row="6" Grid.Column="1" Margin="0,3"
+                                                 Text="{Binding SelectedItem.CreditsLimit, ElementName=ServiceList}"
+                                                 InputMethod.IsInputMethodEnabled="False"/>
                                     </Grid>
                                 </StackPanel>
                             </GroupBox>

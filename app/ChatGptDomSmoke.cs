@@ -112,7 +112,7 @@ internal static class ChatGptDomSmoke
                 var info = await engine.ScanCreditsAsync(wv, service, timeout.Token);
                 checks[name] = balance == null
                     ? info == null
-                    : info?.Balance == balance && info.ReferenceBalance == balance && info.AutoReload == auto;
+                    : info?.Balance == balance && info.AutoReload == auto;
             }
 
             const string creditHistory = "<h2>Credit usage history</h2><p>Nov 11, 2026</p><p>107 credits</p>";

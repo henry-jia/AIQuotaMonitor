@@ -21,6 +21,10 @@ var creditCardChecks = ServiceCardCreditsTests.Run();
 checks += creditCardChecks.Checks;
 failures.AddRange(creditCardChecks.Failures);
 foreach (var failure in creditCardChecks.Failures) Console.Error.WriteLine(failure);
+var settingsCreditsChecks = SettingsCreditsTests.Run();
+checks += settingsCreditsChecks.Checks;
+failures.AddRange(settingsCreditsChecks.Failures);
+foreach (var failure in settingsCreditsChecks.Failures) Console.Error.WriteLine(failure);
 if (args.Contains("--card-login-only"))
 {
     Console.WriteLine($"{(failures.Count == 0 ? "PASS" : "FAIL")} card login {checks - failures.Count}/{checks}");
@@ -284,11 +288,11 @@ if (ScrapeEngine.ParseBonusPayload("", now, out _).Count != 0 ||
     ScrapeEngine.ParseBonusPayload("not-json", now, out _).Count != 0)
     failures.Add("Malformed bonus-reset payloads must yield no entries.");
 
-// Codex Credits：余额与自动充值开关解析、最高余额基准合并。
+// Codex Credits：余额与自动充值开关解析、服务级上限配置与失败快照。
 checks++;
 var creditsNow = DateTimeOffset.Now;
 var credits = ScrapeEngine.ParseCreditsPayload("""{"balance":"50,167","auto":"off"}""", creditsNow);
-if (credits?.Balance != 50167 || credits.ReferenceBalance != 50167 || credits.AutoReload != false || credits.FetchedAt != creditsNow)
+if (credits?.Balance != 50167 || credits.AutoReload != false || credits.FetchedAt != creditsNow)
     failures.Add("Standard Codex credits balance/auto-reload payload was not parsed correctly.");
 
 checks++;
@@ -300,19 +304,20 @@ if (creditsOn?.AutoReload != true || creditsZh?.Balance != 12345 || creditsZh.Au
     failures.Add("Credits parsing must support on/unknown switch states and reject malformed balances.");
 
 checks++;
-var previousResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 50167, ReferenceBalance = 62500, AutoReload = false } };
-var currentResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 49000, ReferenceBalance = 49000, AutoReload = false } };
-MainWindow.MergeCredits(previousResult, currentResult);
-if (currentResult.Credits.ReferenceBalance != 62500 || currentResult.Credits.Used != 13500)
-    failures.Add("Credit consumption must be measured against the persisted local high balance.");
+var defaultCreditsConfig = new ServiceConfig();
+var customCreditsConfig = ConfigStore.Clone(new ServiceConfig { CreditsLimit = 75000 });
+if (defaultCreditsConfig.CreditsLimit != 62500 || customCreditsConfig.CreditsLimit != 75000 ||
+    new ServiceConfig { CreditsLimit = 0 }.CreditsLimit != 1)
+    failures.Add("Credits limit must default to 62500, survive config cloning, and reject non-positive values.");
 
 checks++;
-var reloadedResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 70000, ReferenceBalance = 70000 } };
-MainWindow.MergeCredits(previousResult, reloadedResult);
-if (reloadedResult.Credits.ReferenceBalance != 70000 || reloadedResult.Credits.Used != 0)
-    failures.Add("A credit reload must raise the local reference balance and reset displayed consumption.");
+string creditsConfigJson = System.Text.Json.JsonSerializer.Serialize(customCreditsConfig,
+    new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+if (!creditsConfigJson.Contains("\"creditsLimit\":75000"))
+    failures.Add("Custom Credits limit must serialize as camelCase creditsLimit.");
 
 checks++;
+var previousResult = new ServiceScrapeResult { Credits = new CreditBalanceInfo { Balance = 50167, AutoReload = false } };
 var missingCredits = new ServiceScrapeResult();
 MainWindow.MergeCredits(previousResult, missingCredits);
 if (!ReferenceEquals(previousResult.Credits, missingCredits.Credits))

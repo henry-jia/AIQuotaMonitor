@@ -8,7 +8,7 @@
 - Volcengine Coding Plan support for current-session, weekly, and monthly refresh states.
 - Shared idle-state hint for zero-usage 5-hour windows that have not started a reset timer.
 - Bonus usage resets (Codex "Usage limit resets", GLM "用量重置额度") with per-entry expiry, including opening GLM's "重置管理" dialog to read it.
-- Codex Credits balance and automatic-reload monitoring below weekly usage, with locally observed consumption and a persisted highest-balance reference (not an official percentage).
+- Codex Credits balance and automatic-reload monitoring below weekly usage, with a per-service configurable limit (default 62500), immediate recalculation after saving, and non-negative consumption above the limit.
 - Configurable countdown versus exact-date rendering.
 
 ## Window summoning

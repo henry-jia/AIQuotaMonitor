@@ -1,5 +1,19 @@
 # Change Log
 
+## [20261111] Release v1.8.2
+- **類型**：Release
+- **影響範圍**：assembly/file/package versions, bilingual README, release notes, local and GitHub Windows x64 assets
+- **內容**：Ship per-service configurable Credits limits as v1.8.2. Updated all application version fields to 1.8.2.0 and moved README downloads and what's-new sections to the new release. Publish both the local executable/package and GitHub Release assets.
+- **關聯文件**：`app/AIQuotaMonitor.csproj`, `README.md`, `README.en.md`, `docs/releases/v1.8.2.md`, `docs/220_Change_Log.md`
+- **操作人**：Kimi
+
+## [20261111] Make Codex Credits limit configurable
+- **類型**：Feature
+- **影響範圍**：per-service configuration, service settings UI, Credits card calculations, regression tests, bilingual documentation
+- **內容**：Replace the local highest-balance reference with a per-service Credits limit defaulting to 62500. The numeric field is placed below Subscription URL in Service settings and appears only for ChatGPT/Codex usage URLs, including legacy hash routes. Saving immediately recalculates consumption and bar ratio; balances above the limit fill the bar without negative consumption. Added default/custom serialization, save/visibility, immediate card recalculation, and above-limit regression coverage.
+- **關聯文件**：`app/Models.cs`, `app/SettingsWindow.xaml`, `app/SettingsWindow.xaml.cs`, `app/ServiceCard.xaml.cs`, `app/MainWindow.xaml.cs`, `tests/AIQuotaMonitor.RegressionTests/`, `README.md`, `README.en.md`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Kimi
+
 ## [20261111] Release v1.8.1
 - **類型**：Release
 - **影響範圍**：assembly/file/package versions, bilingual README, release notes, Windows x64 self-contained package

@@ -184,6 +184,11 @@ public class ServiceConfig : ObservableObject
     private string? _subscriptionUrl;
     public string? SubscriptionUrl { get => _subscriptionUrl; set => Set(ref _subscriptionUrl, value); }
 
+    public const long DefaultCreditsLimit = 62500;
+    /// <summary>Codex Credits 上限（按服务配置），用于计算已用量与余额条比例。</summary>
+    private long _creditsLimit = DefaultCreditsLimit;
+    public long CreditsLimit { get => _creditsLimit; set => Set(ref _creditsLimit, Math.Max(1, value)); }
+
     private IList<QuotaRule> _rules = new List<QuotaRule>();
     public IList<QuotaRule> Rules { get => _rules; set => Set(ref _rules, value); }
 }
@@ -266,16 +271,12 @@ public class BonusReset
     public string? RawText;
 }
 
-/// <summary>Codex Credits 余额。官方没有固定总额度，进度条以本机见过的最高余额为基准。</summary>
+/// <summary>Codex Credits 余额；条形的上限来自所属服务的 CreditsLimit 配置。</summary>
 public class CreditBalanceInfo
 {
     public long Balance;
-    public long ReferenceBalance;
     public bool? AutoReload;
     public DateTimeOffset FetchedAt;
-
-    [System.Text.Json.Serialization.JsonIgnore]
-    public long Used => Math.Max(0, ReferenceBalance - Balance);
 }
 
 public class RuleResult

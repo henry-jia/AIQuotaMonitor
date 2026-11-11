@@ -724,7 +724,6 @@ public sealed class ScrapeEngine
             return new CreditBalanceInfo
             {
                 Balance = value,
-                ReferenceBalance = value,
                 AutoReload = auto switch { "on" => true, "off" => false, _ => null },
                 FetchedAt = now,
             };

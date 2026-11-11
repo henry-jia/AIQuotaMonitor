@@ -112,6 +112,9 @@ public partial class SettingsWindow : Window
         LblSubUrl.Text = I18n.T("field_sub_url");
         LblSubUrl.ToolTip = I18n.T("tip_sub_url");
         SubUrlBox.ToolTip = I18n.T("tip_sub_url");
+        LblCreditsLimit.Text = I18n.T("field_credits_limit");
+        LblCreditsLimit.ToolTip = I18n.T("tip_credits_limit");
+        CreditsLimitBox.ToolTip = I18n.T("tip_credits_limit");
 
         GroupRules.Header = I18n.T("group_rules");
         BtnAddRule.Content = I18n.T("add");
@@ -205,6 +208,7 @@ public partial class SettingsWindow : Window
         SvcIntervalBox.Text = svc?.RefreshIntervalMinutes?.ToString() ?? "";
         _suppressInterval = false;
         RuleList.SelectedIndex = svc != null && svc.Rules.Count > 0 ? 0 : -1;
+        UpdateCreditsLimitVisibility();
     }
 
     private void AddService_Click(object sender, RoutedEventArgs e)
@@ -245,6 +249,16 @@ public partial class SettingsWindow : Window
     }
 
     // ---------- 服务字段 ----------
+
+    private void UrlBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateCreditsLimitVisibility();
+
+    private void UpdateCreditsLimitVisibility()
+    {
+        bool show = ServiceList.SelectedItem is ServiceConfig svc && ScrapeEngine.IsChatGptUsage(svc);
+        var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        LblCreditsLimit.Visibility = visibility;
+        CreditsLimitBox.Visibility = visibility;
+    }
 
     private void SvcIntervalBox_TextChanged(object sender, TextChangedEventArgs e)
     {

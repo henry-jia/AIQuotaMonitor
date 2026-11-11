@@ -220,12 +220,12 @@ public partial class ServiceCard : UserControl
             RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg, result.Subscription?.ExpireAt?.LocalDateTime), rule.Label));
             if (!creditsAdded && result.Credits != null && PaceBaseline.WindowHours(rule.Label) == 7 * 24)
             {
-                RowsPanel.Children.Add(BuildCreditsRow(result.Credits, _theme));
+                RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, _theme));
                 creditsAdded = true;
             }
         }
         if (!creditsAdded && result.Credits != null)
-            RowsPanel.Children.Add(BuildCreditsRow(result.Credits, _theme));
+            RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, _theme));
     }
 
     /// <summary>陈旧数据警告行：刷新失败显示「刷新失败——显示 HH:mm 的数据」（tooltip 完整错误）；
@@ -360,11 +360,11 @@ public partial class ServiceCard : UserControl
         if (_service != null) RequestViewPage?.Invoke(_service);
     }
 
-    private static FrameworkElement BuildCreditsRow(CreditBalanceInfo credits, ResolvedTheme theme)
+    private static FrameworkElement BuildCreditsRow(CreditBalanceInfo credits, long configuredLimit, ResolvedTheme theme)
     {
-        long reference = Math.Max(credits.Balance, credits.ReferenceBalance);
-        long used = Math.Max(0, reference - credits.Balance);
-        double remaining = reference > 0 ? Math.Clamp(credits.Balance * 100.0 / reference, 0, 100) : 0;
+        long limit = Math.Max(1, configuredLimit);
+        long used = Math.Max(0, limit - credits.Balance);
+        double remaining = Math.Clamp(credits.Balance * 100.0 / limit, 0, 100);
         var barColor = credits.Balance == 0 ? theme.Critical : theme.Normal;
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 9) };
 
@@ -413,7 +413,7 @@ public partial class ServiceCard : UserControl
             Margin = new Thickness(0, 3, 0, 0),
         });
         panel.ToolTip = I18n.T("credits_tooltip",
-            credits.Balance.ToString("N0"), reference.ToString("N0"),
+            credits.Balance.ToString("N0"), limit.ToString("N0"),
             credits.FetchedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"));
         System.Windows.Automation.AutomationProperties.SetName(panel,
             I18n.T("credits_balance") + " " + credits.Balance.ToString("N0"));
