@@ -1,5 +1,19 @@
 # Change Log
 
+## [20261111] Release v1.8.1
+- **類型**：Release
+- **影響範圍**：assembly/file/package versions, bilingual README, release notes, Windows x64 self-contained package
+- **內容**：Ship the legacy ChatGPT hash Usage URL compatibility fix as v1.8.1 so existing Codex configurations display Credits without migration. Updated all application version fields to 1.8.1.0 and moved README downloads and what's-new sections to the hotfix release.
+- **關聯文件**：`app/AIQuotaMonitor.csproj`, `app/ScrapeEngine.cs`, `README.md`, `README.en.md`, `docs/releases/v1.8.1.md`, `docs/220_Change_Log.md`
+- **操作人**：Kimi
+
+## [20261111] Enable Credits on legacy ChatGPT usage URLs
+- **類型**：Bugfix
+- **影響範圍**：ChatGPT usage URL detection, Credits/Billing scan gate, regression tests, bilingual README
+- **內容**：v1.8.0 only enabled Credits for `/settings/usage` and `/codex/settings/usage`, so existing services using `https://chatgpt.com/#settings/Usage` silently skipped the scan. URL detection now accepts the legacy hash route (including query text and case variants) while still rejecting unrelated hosts and pages; automatic Billing detection benefits from the same fix. No configuration migration is required.
+- **關聯文件**：`app/ScrapeEngine.cs`, `tests/AIQuotaMonitor.RegressionTests/Program.cs`, `README.md`, `README.en.md`, `docs/200_Functional_Requirements.md`
+- **操作人**：Kimi
+
 ## [20261111] Release v1.8.0
 - **類型**：Release
 - **影響範圍**：assembly/file/package versions, bilingual README, release notes, Windows x64 self-contained package

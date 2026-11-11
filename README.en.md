@@ -16,16 +16,16 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.8.0
+## What's new in v1.8.1
 
-- [Download v1.8.0 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.0/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.0). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **New Codex Credits monitor**: below weekly usage, see current balance, amount consumed, and automatic-reload state, so Credit spending remains visible after the plan quota is exhausted.
-- **No invented official percentage**: ChatGPT provides no fixed Credits total. The bar uses the highest balance observed locally, raises that reference after reloads or grants, and persists it with the last successful result.
-- **Automatic and isolated from quota failures**: balance and switch state are read on the existing Usage page, including delayed rendering and open shadow roots. Credit-history entries are excluded, and a failed scan retains the previous snapshot without affecting other quotas.
+- [Download v1.8.1 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.1/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.1). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
+- **Fix missing Credits on legacy Codex URLs**: v1.8.0 skipped the Credits scan for existing services using `https://chatgpt.com/#settings/Usage`. Both that legacy hash route and the current `/settings/usage` URL now work.
+- **No configuration migration**: legacy URLs also regain automatic Billing-page detection, while lookalike hosts and unrelated pages remain excluded and custom subscription URLs are preserved.
+- **All v1.8.0 Credits features retained**: balance, local consumption, and automatic-reload state appear below weekly usage, with the local highest-balance reference persisted across restarts.
 
-Validation: 98 regression checks, 23 ChatGPT page checks and 9 real WebView2 navigation checks passed; Chinese horizontal and English vertical screenshots were inspected. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
+Validation: 99 regression checks, 23 ChatGPT page checks and 9 real WebView2 navigation checks passed, including the exact legacy URL from the affected configuration. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
 
-See the complete [v1.8.0 release notes](docs/releases/v1.8.0.md). The previous navigation fix is documented in [v1.7.5](docs/releases/v1.7.5.md); earlier ChatGPT Billing and Reset fixes are documented in [v1.7.2](docs/releases/v1.7.2.md).
+See the complete [v1.8.1 release notes](docs/releases/v1.8.1.md). The Credits feature was introduced in [v1.8.0](docs/releases/v1.8.0.md); the previous navigation fix is documented in [v1.7.5](docs/releases/v1.7.5.md).
 
 ## Features
 
@@ -75,9 +75,9 @@ Add one service per account in Settings and configure quota rules using the text
 
 When the page shows `23% left`, the card automatically displays **77% used**; no additional Invert setting is needed. Full / Partial reset grants under `Usage limit resets` are scanned automatically. The card shows the available count and earliest expiry, with individual grants in its tooltip. The app reads these grants without using them.
 
-The `Credits` section is scanned automatically too. Its monitor sits below weekly usage and shows balance, amount used, and automatic-reload state. ChatGPT provides no fixed Credits total, so the bar uses the highest balance observed locally rather than an official percentage. Reloads or grants raise that reference automatically; it is stored locally with the last successful result.
+The `Credits` section is scanned automatically too. Its monitor sits below weekly usage and shows balance, amount used, and automatic-reload state. Both the current `/settings/usage` and legacy `/#settings/Usage` URLs work without changing existing configurations. ChatGPT provides no fixed Credits total, so the bar uses the highest balance observed locally rather than an official percentage. Reloads or grants raise that reference automatically; it is stored locally with the last successful result.
 
-After upgrading from 1.7.5 to 1.8.0, start the new exe and refresh; standard usage URLs need no additional configuration. If a slow page still omits bonus resets or Credits, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas, bonus-reset lists, and Credits update on every successful scrape.
+After upgrading from 1.8.0 to 1.8.1, start the new exe and refresh; both current and legacy standard usage URLs need no additional configuration. If a slow page still omits bonus resets or Credits, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas, bonus-reset lists, and Credits update on every successful scrape.
 
 ## Adding a service (worked example)
 

@@ -16,16 +16,16 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ![横向布局](preview_horizontal.png)
 
-## v1.8.0 更新
+## v1.8.1 更新
 
-- [下载 v1.8.0 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.0/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.0)。无需安装 .NET，运行时需要 WebView2 Runtime。
-- **新增 Codex Credits 监控**：每周用量下方显示当前余额、累计已用数量和自动充值状态，周配额用完后也能继续掌握 Credit 消耗。
-- **不虚报官方百分比**：官方没有提供 Credits 固定总额度，条形以本机记录的最高余额为基准；充值或赠送后自动抬高基准，并随上次成功结果保存。
-- **自动识别，无需配置**：在原 Usage 页面一并读取余额与开关，支持延迟渲染和 Shadow DOM，不会把 Credit 扣费历史当成余额；扫描失败保留上次快照，不影响其他配额。
+- [下载 v1.8.1 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.1/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.1)。无需安装 .NET，运行时需要 WebView2 Runtime。
+- **修复旧版 Codex 地址不显示 Credits**：已有服务使用 `https://chatgpt.com/#settings/Usage` 时，1.8.0 会跳过 Credits 扫描；现在旧 hash 地址与新 `/settings/usage` 地址均可正常显示。
+- **无需迁移配置**：旧地址同时恢复自动 Billing 页面识别；继续排除相似域名和无关页面，自定义订阅网址保持不变。
+- **保留 1.8.0 Credits 监控**：每周用量下方显示余额、累计消耗和自动充值状态，本机最高余额基准在重启后保留。
 
-验证：98 项回归、23 项 ChatGPT 页面检查及 9 项真实 WebView2 导航检查通过；中文横向与英文纵向截图检查通过。测试使用本地等价页面与临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
+验证：99 项回归、23 项 ChatGPT 页面检查及 9 项真实 WebView2 导航检查通过；实际旧配置地址已加入精确回归。测试使用本地等价页面与临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
 
-完整说明见 [v1.8.0 Release Notes](docs/releases/v1.8.0.md)。上一版导航修复见 [v1.7.5 Release Notes](docs/releases/v1.7.5.md)；ChatGPT Billing / Reset 修复见 [v1.7.2 Release Notes](docs/releases/v1.7.2.md)。
+完整说明见 [v1.8.1 Release Notes](docs/releases/v1.8.1.md)。Credits 功能见 [v1.8.0 Release Notes](docs/releases/v1.8.0.md)；上一版导航修复见 [v1.7.5 Release Notes](docs/releases/v1.7.5.md)。
 
 ## 功能一览
 
@@ -73,9 +73,9 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 页面显示 `23% left` 时，卡片自动换算为 **已用 77%**，不必额外开启反转。`Usage limit resets` 中的 Full / Partial reset 会自动扫描，卡片显示可用次数与最早到期日，悬停可查看每条信息。程序只读取重置信息，不会使用赠送的 Reset。
 
-`Credits` 区块也会自动扫描，监控条紧跟每周用量，显示余额、已用数量与自动充值状态。官方没有提供 Credits 固定总额度，因此条形以本机记录的最高余额为基准，而非官方百分比；充值或赠送后基准自动上调，该基准随上次成功结果保存在本机。
+`Credits` 区块也会自动扫描，监控条紧跟每周用量，显示余额、已用数量与自动充值状态。新版 `/settings/usage` 与旧版 `/#settings/Usage` 地址均支持，无需修改已有配置。官方没有提供 Credits 固定总额度，因此条形以本机记录的最高余额为基准，而非官方百分比；充值或赠送后基准自动上调，该基准随上次成功结果保存在本机。
 
-从 1.7.5 升级到 1.8.0 后，启动新版并点击刷新即可；标准用量网址无需新增配置。页面加载较慢、仍缺少 Reset 或 Credits 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额、Reset 列表和 Credits 则随每次成功抓取更新。
+从 1.8.0 升级到 1.8.1 后，启动新版并点击刷新即可；新旧标准用量网址均无需新增配置。页面加载较慢、仍缺少 Reset 或 Credits 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额、Reset 列表和 Credits 则随每次成功抓取更新。
 
 ## 如何添加一个服务（完整示例）
 

@@ -237,6 +237,16 @@ if (ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.c
     failures.Add("ChatGPT usage pages without an override must automatically scan the separate Billing page.");
 
 checks++;
+if (!ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com/#settings/Usage" }) ||
+    !ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com/#settings/Usage?tab=overview" }) ||
+    !ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com/Settings/Usage" }) ||
+    ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com/#settings/Usage" }) != "https://chatgpt.com/settings/billing" ||
+    ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com/#settings/Billing" }) ||
+    ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com/example/#settings/Usage" }) ||
+    ScrapeEngine.IsChatGptUsage(new ServiceConfig { Url = "https://chatgpt.com.example.com/#settings/Usage" }))
+    failures.Add("Legacy ChatGPT hash usage URLs must enable Credits/Billing scans without matching unrelated hosts or pages.");
+
+checks++;
 const string customSubscriptionUrl = "https://example.com/plan";
 if (ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com/settings/usage", SubscriptionUrl = customSubscriptionUrl }) != customSubscriptionUrl ||
     ScrapeEngine.GetSubscriptionUrl(new ServiceConfig { Url = "https://chatgpt.com.example.com/settings/usage" }) != null ||

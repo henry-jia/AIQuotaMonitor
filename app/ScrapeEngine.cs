@@ -59,10 +59,18 @@ public sealed class ScrapeEngine
     public CoreWebView2Environment? Env => _shared.Env;
     internal string? SessionRestoreErrorCode { get; private set; }
 
-    internal static bool IsChatGptUsage(ServiceConfig service) =>
-        Uri.TryCreate(service.Url, UriKind.Absolute, out var uri) &&
-        uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("chatgpt.com", StringComparison.OrdinalIgnoreCase) &&
-        uri.AbsolutePath.TrimEnd('/') is "/settings/usage" or "/codex/settings/usage";
+    internal static bool IsChatGptUsage(ServiceConfig service)
+    {
+        if (!Uri.TryCreate(service.Url, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps || !uri.Host.Equals("chatgpt.com", StringComparison.OrdinalIgnoreCase))
+            return false;
+        string path = uri.AbsolutePath.TrimEnd('/');
+        if (path.Equals("/settings/usage", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/codex/settings/usage", StringComparison.OrdinalIgnoreCase))
+            return true;
+        string hashPath = uri.Fragment.TrimStart('#').TrimEnd('/').Split('?')[0];
+        return path.Length == 0 && hashPath.Equals("settings/Usage", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Keep explicit overrides; ChatGPT usage pages have a known separate billing page.</summary>
     internal static string? GetSubscriptionUrl(ServiceConfig service)
