@@ -10,6 +10,7 @@ Direction: Modern Minimal with Tech Utility density. This records the existing p
 - `hairline-glass`: white at 20% / `#33FFFFFF`.
 - `text-primary`: `#F2F2F5`; `text-secondary`: `#8A8A95`.
 - `action-primary`: `oklch(0.68 0.16 255)` / `#4F8CFF`.
+- `credit-usage`: `#3FB950`; reserved for Credit balances and daily Credit consumption.
 - State colors remain semantic: normal, near baseline, ahead of baseline, and critical.
 
 ## 2. Typography
@@ -36,7 +37,8 @@ Direction: Modern Minimal with Tech Utility density. This records the existing p
 - Glass shell: DWM Acrylic blur, restrained tint, one hairline border, and a subtle top reflection.
 - Cards: translucent solid layer for legibility; cards do not add a second blur.
 - Icon buttons: transparent by default, white hover wash, subdued pressed state, visible disabled state.
-- Progress bars: color communicates quota state; baseline ticks remain secondary. Credits uses the same compact bar grammar, but its fill is explicitly relative to the per-service configured limit rather than an official provider total. The limit editor is a service-scoped numeric field shown only for Codex usage pages.
+- Progress bars: color communicates quota state; baseline ticks remain secondary. Credits uses the same compact bar grammar and a fixed green, but its fill is explicitly relative to the per-service configured limit rather than an official provider total. The limit editor is a service-scoped numeric field shown only for Codex usage pages.
+- Credit history: a Mica window with explicit start/end dates, restrained green daily bars, and factual range totals. The default range is 30 calendar days; zero-usage days have no bar.
 
 ## 6. Motion
 

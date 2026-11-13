@@ -682,8 +682,85 @@ public sealed class ScrapeEngine
           var am = t.match(/Automatic\s+reload[\s\S]{0,30}?\b(On|Off)\b/i);
           if (am) auto = am[1].toLowerCase();
         }
-        return JSON.stringify({ balance: m ? m[1] : "", auto: auto });
+        var history = [];
+        var historyNext = false;
+        for (var hd = 0; hd < docs.length; hd++) {
+          var headings = docs[hd].querySelectorAll("*");
+          for (var hi = 0; hi < headings.length; hi++) {
+            var heading = (headings[hi].innerText || "").trim();
+            if (!/^Credit usage history$/i.test(heading) && !/^Credits? 使用(?:历史|记录)$/.test(heading) && heading !== "积分使用记录") continue;
+            var container = parentOf(headings[hi]);
+            for (var depth = 0; depth <= 5 && container; depth++) {
+              var text = (container.innerText || "").trim();
+              if (/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{4}[-/年]\d{1,2}/i.test(text) && /[\d,]+\s*(?:credits?|积分)/i.test(text)) {
+                history.push(text);
+                var pageButtons = container.querySelectorAll("button, [role=button]");
+                for (var pb = 0; pb < pageButtons.length; pb++) {
+                  var pageLabel = (pageButtons[pb].innerText || "").trim();
+                  if (!/^(?:Next|下一页|下一頁)$/i.test(pageLabel)) continue;
+                  if (pageButtons[pb].disabled !== true && pageButtons[pb].getAttribute("aria-disabled") !== "true") historyNext = true;
+                }
+                break;
+              }
+              container = parentOf(container);
+            }
+          }
+        }
+        return JSON.stringify({ balance: m ? m[1] : "", auto: auto, history: history, historyNext: historyNext });
       } catch (e) { return JSON.stringify({ balance: "", auto: "" }); }
+    })()
+    """;
+
+    private const string CreditHistoryNextPageScript = """
+    (function () {
+      try {
+        function collectDocs(root) {
+          var docs = [root];
+          for (var di = 0; di < docs.length; di++) {
+            var frames = docs[di].querySelectorAll("iframe");
+            for (var fi = 0; fi < frames.length; fi++) {
+              try { var cd = frames[fi].contentDocument; if (cd) docs.push(cd); } catch (e) {}
+            }
+            var els = docs[di].querySelectorAll("*");
+            for (var si = 0; si < els.length; si++) {
+              if (els[si].shadowRoot) docs.push(els[si].shadowRoot);
+            }
+          }
+          return docs;
+        }
+        function parentOf(el) {
+          if (!el) return null;
+          if (el.parentElement) return el.parentElement;
+          try { var r = el.getRootNode && el.getRootNode(); if (r && r.host) return r.host; } catch (e) {}
+          return null;
+        }
+        var docs = collectDocs(document);
+        for (var hd = 0; hd < docs.length; hd++) {
+          var headings = docs[hd].querySelectorAll("*");
+          for (var hi = 0; hi < headings.length; hi++) {
+            var heading = (headings[hi].innerText || "").trim();
+            if (!/^Credit usage history$/i.test(heading) && !/^Credits? 使用(?:历史|记录)$/.test(heading) && heading !== "积分使用记录") continue;
+            var container = parentOf(headings[hi]);
+            for (var depth = 0; depth <= 5 && container; depth++) {
+              var text = (container.innerText || "").trim();
+              if (!/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{4}[-/年]\d{1,2}/i.test(text) || !/[\d,]+\s*(?:credits?|积分)/i.test(text)) {
+                container = parentOf(container);
+                continue;
+              }
+              var buttons = container.querySelectorAll("button, [role=button]");
+              for (var bi = 0; bi < buttons.length; bi++) {
+                var label = (buttons[bi].innerText || "").trim();
+                if (!/^(?:Next|下一页|下一頁)$/i.test(label)) continue;
+                if (buttons[bi].disabled === true || buttons[bi].getAttribute("aria-disabled") === "true") continue;
+                buttons[bi].click();
+                return "next";
+              }
+              return "";
+            }
+          }
+        }
+        return "";
+      } catch (e) { return ""; }
     })()
     """;
 
@@ -693,21 +770,105 @@ public sealed class ScrapeEngine
         {
             var deadline = DateTime.Now + TimeSpan.FromSeconds(Math.Max(2, service.ExtraWaitSeconds));
             CreditBalanceInfo? latest = null;
+            string payload = "";
+            var now = DateTimeOffset.Now;
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
-                var now = DateTimeOffset.Now;
-                var current = ParseCreditsPayload(await EvalStringAsync(wv, CreditsPageScanScript), now);
+                now = DateTimeOffset.Now;
+                payload = await EvalStringAsync(wv, CreditsPageScanScript);
+                var current = ParseCreditsPayload(payload, now);
                 if (current != null) latest = current;
-                if ((latest?.AutoReload != null && latest.Balance >= 0) || DateTime.Now >= deadline) return latest;
+                if ((latest?.AutoReload != null && latest.Balance >= 0) || DateTime.Now >= deadline) break;
                 await Task.Delay(500, ct);
             }
+            if (latest == null) return null;
+
+            var pagePayloads = new List<string>();
+            var fingerprints = new HashSet<string>(StringComparer.Ordinal);
+            bool historyComplete = false;
+            var crawlDeadline = DateTime.Now + TimeSpan.FromSeconds(Math.Max(10, service.ExtraWaitSeconds * 3));
+            for (int page = 0; page < 100; page++)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!TryGetCreditHistoryPage(payload, out string fingerprint, out bool hasNext)) break;
+                pagePayloads.Add(payload);
+                if (!hasNext)
+                {
+                    historyComplete = true;
+                    break;
+                }
+                if (!fingerprints.Add(fingerprint) || DateTime.Now >= crawlDeadline) break;
+                if (await EvalStringAsync(wv, CreditHistoryNextPageScript) != "next") break;
+
+                string previousFingerprint = fingerprint;
+                string nextPayload = "";
+                while (DateTime.Now < crawlDeadline)
+                {
+                    await Task.Delay(250, ct);
+                    string candidate = await EvalStringAsync(wv, CreditsPageScanScript);
+                    if (TryGetCreditHistoryPage(candidate, out string nextFingerprint, out _) &&
+                        nextFingerprint != previousFingerprint)
+                    {
+                        nextPayload = candidate;
+                        break;
+                    }
+                }
+                if (nextPayload.Length == 0) break;
+                payload = nextPayload;
+            }
+            latest.History = ParseCreditHistoryPagePayloads(pagePayloads, now);
+            latest.HistoryComplete = historyComplete;
+            return latest;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
         }
     }
+
+    private static bool TryGetCreditHistoryPage(string payload, out string fingerprint, out bool hasNext)
+    {
+        fingerprint = "";
+        hasNext = false;
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("history", out var history) || history.ValueKind != JsonValueKind.Array ||
+                history.GetArrayLength() == 0) return false;
+            fingerprint = string.Join("\u001f", history.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()));
+            if (root.TryGetProperty("historyNext", out var next) && next.ValueKind == JsonValueKind.True)
+                hasNext = true;
+            return fingerprint.Length > 0;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    internal static List<CreditUsageEntry> ParseCreditHistoryPagePayloads(IEnumerable<string> payloads, DateTimeOffset now)
+    {
+        var result = new List<CreditUsageEntry>();
+        var occurrences = new Dictionary<string, int>();
+        foreach (string payload in payloads)
+        {
+            foreach (var entry in ParseCreditHistoryPayload(payload, now))
+            {
+                string signature = CreditHistorySignature(entry.Day, entry.Credits, entry.Description);
+                occurrences.TryGetValue(signature, out int occurrence);
+                occurrences[signature] = occurrence + 1;
+                entry.Key = $"{signature}|{occurrence}";
+                result.Add(entry);
+            }
+        }
+        return result;
+    }
+
+    private static string CreditHistorySignature(DateTime day, long credits, string? description) =>
+        $"{day:yyyy-MM-dd}|{credits}|{(description ?? "").ToLowerInvariant()}";
 
     internal static CreditBalanceInfo? ParseCreditsPayload(string payload, DateTimeOffset now)
     {
@@ -732,6 +893,87 @@ public sealed class ScrapeEngine
         {
             return null;
         }
+    }
+
+    internal static List<CreditUsageEntry> ParseCreditHistoryPayload(string payload, DateTimeOffset now)
+    {
+        var result = new List<CreditUsageEntry>();
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (!doc.RootElement.TryGetProperty("history", out var history) || history.ValueKind != JsonValueKind.Array)
+                return result;
+            var occurrences = new Dictionary<string, int>();
+            var capturedContainers = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in history.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String) continue;
+                string capturedText = item.GetString() ?? "";
+                if (!capturedContainers.Add(capturedText)) continue;
+                DateTime? day = null;
+                var description = new List<string>();
+                foreach (string rawLine in capturedText.Split('\n'))
+                {
+                    string line = rawLine.Trim();
+                    if (line.Length == 0) continue;
+                    if (TryParseCreditDay(line, now, out var parsedDay))
+                    {
+                        day = parsedDay;
+                        description.Clear();
+                        continue;
+                    }
+                    var amount = Regex.Match(line, @"^([\d,]+)\s*(?:credits?|积分)$", RegexOptions.IgnoreCase);
+                    if (day == null || !amount.Success) continue;
+                    if (!long.TryParse(amount.Groups[1].Value.Replace(",", ""), NumberStyles.None,
+                            CultureInfo.InvariantCulture, out long credits) || credits <= 0) continue;
+                    string text = string.Join(" · ", description).Trim();
+                    string signature = $"{day:yyyy-MM-dd}|{credits}|{text.ToLowerInvariant()}";
+                    occurrences.TryGetValue(signature, out int occurrence);
+                    occurrences[signature] = occurrence + 1;
+                    result.Add(new CreditUsageEntry
+                    {
+                        Key = $"{signature}|{occurrence}",
+                        Day = day.Value,
+                        Credits = credits,
+                        Description = string.IsNullOrWhiteSpace(text) ? null : text,
+                    });
+                    description.Clear();
+                }
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return new List<CreditUsageEntry>();
+        }
+        return result;
+    }
+
+    private static bool TryParseCreditDay(string line, DateTimeOffset now, out DateTime day)
+    {
+        string[] formats =
+        {
+            "MMM d, yyyy", "MMMM d, yyyy", "MMM d", "MMMM d",
+            "yyyy-MM-dd", "yyyy/MM/dd", "M/d/yyyy", "MM/dd/yyyy", "yyyy年M月d日",
+        };
+        bool relative = line.Equals("Today", StringComparison.OrdinalIgnoreCase) || line == "今天" ||
+            line.Equals("Yesterday", StringComparison.OrdinalIgnoreCase) || line == "昨天";
+        if (relative)
+        {
+            day = now.LocalDateTime.Date.AddDays(line.Equals("Yesterday", StringComparison.OrdinalIgnoreCase) || line == "昨天" ? -1 : 0);
+            return true;
+        }
+        if (DateTime.TryParseExact(line, formats, CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces, out day) ||
+            DateTime.TryParseExact(line, formats, CultureInfo.CurrentCulture,
+                DateTimeStyles.AllowWhiteSpaces, out day))
+        {
+            if (day.Year == 1) day = new DateTime(now.Year, day.Month, day.Day);
+            if (!Regex.IsMatch(line, @"\d{4}") && day > now.LocalDateTime.Date.AddDays(1)) day = day.AddYears(-1);
+            day = DateTime.SpecifyKind(day.Date, DateTimeKind.Local);
+            return true;
+        }
+        day = default;
+        return false;
     }
 
     // ---------- 赠送重置次数（Codex「Usage limit resets」/ 智谱「用量重置额度」） ----------

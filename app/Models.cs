@@ -87,7 +87,7 @@ public class AppConfig : ObservableObject
     private ThemeConfig _theme = new();
     public ThemeConfig Theme { get => _theme; set => Set(ref _theme, value); }
 
-    /// <summary>记录用量历史到本机 history.jsonl（仅百分比样本，存本机不上传）。</summary>
+    /// <summary>记录配额百分比与 Codex Credit 流水到本机历史文件（不上传）。</summary>
     private bool _recordHistory = true;
     public bool RecordHistory { get => _recordHistory; set => Set(ref _recordHistory, value); }
 
@@ -277,6 +277,10 @@ public class CreditBalanceInfo
     public long Balance;
     public bool? AutoReload;
     public DateTimeOffset FetchedAt;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<CreditUsageEntry> History = new();
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HistoryComplete;
 }
 
 public class RuleResult

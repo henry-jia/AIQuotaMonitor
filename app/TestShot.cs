@@ -86,6 +86,23 @@ public static class TestShot
         Render(content, outPath, window.Width, window.Height);
     }
 
+    public static void RunCreditHistory(string outPath)
+    {
+        var svc = new ServiceConfig { Id = "sample-codex", Name = "Codex (gpt-6) Hem", Url = "https://chatgpt.com/settings/usage" };
+        var entries = new List<CreditUsageEntry>();
+        var random = new Random(42);
+        for (int i = 0; i < 38; i++)
+        {
+            if (i % 6 == 1 || i % 9 == 4) continue;
+            int credits = 120 + random.Next(0, 1100);
+            entries.Add(new CreditUsageEntry { Key = i.ToString(), Day = DateTime.Today.AddDays(-i), Credits = credits });
+            if (i % 5 == 0)
+                entries.Add(new CreditUsageEntry { Key = $"{i}-b", Day = DateTime.Today.AddDays(-i), Credits = 90 + random.Next(0, 300) });
+        }
+        var window = new CreditHistoryWindow(svc, new AppConfig(), entries);
+        Render((FrameworkElement)window.Content, outPath, window.Width, window.Height);
+    }
+
     private static string InsertSuffix(string path, string suffix)
     {
         string dir = Path.GetDirectoryName(Path.GetFullPath(path)) ?? "";

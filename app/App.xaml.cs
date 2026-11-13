@@ -124,6 +124,23 @@ public partial class App : Application
             return;
         }
 
+        int creditHistoryShotIndex = Array.IndexOf(e.Args, "--test-credit-history-shot");
+        if (creditHistoryShotIndex >= 0 && creditHistoryShotIndex + 1 < e.Args.Length)
+        {
+            I18n.Initialize(langArg ?? I18n.LangAuto);
+            try
+            {
+                TestShot.RunCreditHistory(e.Args[creditHistoryShotIndex + 1]);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(I18n.T("testshot_failed") + ex.Message, "AIQuotaMonitor",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            Shutdown();
+            return;
+        }
+
         // 动画帧渲染模式：AIQuotaMonitor.exe --test-frames dir [--lang zh]（用于合成演示 GIF）
         int framesIndex = Array.IndexOf(e.Args, "--test-frames");
         if (framesIndex >= 0 && framesIndex + 1 < e.Args.Length)

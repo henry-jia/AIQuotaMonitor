@@ -1,5 +1,33 @@
 # Change Log
 
+## [20261113] Release v1.8.4
+- **類型**：Release
+- **影響範圍**：assembly/file/package versions, bilingual README, release notes, local and GitHub Windows x64 assets
+- **內容**：Ship complete Codex Credit daily history and the duplication/pagination fix as v1.8.4. This includes the previously unreleased v1.8.3 daily-history UI. Updated all application version fields to 1.8.4.0, moved README downloads and what's-new sections to the new release, and published the self-contained executable, ZIP package, checksums, and release notes.
+- **關聯文件**：`app/AIQuotaMonitor.csproj`, `README.md`, `README.en.md`, `docs/releases/v1.8.4.md`, `docs/220_Change_Log.md`, `publish/`, `publish_stage/`
+- **操作人**：Kimi
+
+## [20261113] Fix Codex Credit history duplication and pagination
+- **類型**：Bug Fix
+- **影響範圍**：ChatGPT Credit history DOM scanning, pagination, per-service persistence, regression/DOM tests, documentation
+- **內容**：Deduplicate repeated captures of the same history container instead of assigning new occurrence keys and tripling daily totals. Traverse the history section's Next button across pages, preserve legitimate identical events, and replace the local snapshot only after a complete crawl so v1.8.3 triplicated records are repaired automatically; partial crawls retain incremental merge behavior. Added screenshot-derived daily-total and legacy-repair coverage.
+- **關聯文件**：`app/ScrapeEngine.cs`, `app/CreditHistory.cs`, `app/Models.cs`, `app/MainWindow.xaml.cs`, `app/ChatGptDomSmoke.cs`, `tests/AIQuotaMonitor.RegressionTests/Program.cs`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`, `README.md`, `README.en.md`
+- **操作人**：Kimi
+
+## [20261113] Release v1.8.3
+- **類型**：Release
+- **影響範圍**：assembly/file/package versions, bilingual README, release notes, local and staged GitHub Windows x64 assets
+- **內容**：Ship Codex Credit daily usage history as v1.8.3. Updated all application version fields to 1.8.3.0 and moved README downloads and what's-new sections to the new release. Generated the local executable/package and staged GitHub executable; no remote release was created.
+- **關聯文件**：`app/AIQuotaMonitor.csproj`, `README.md`, `README.en.md`, `docs/releases/v1.8.3.md`, `docs/220_Change_Log.md`, `publish/`, `publish_stage/`
+- **操作人**：Kimi
+
+## [20261113] Add Codex Credit daily usage history
+- **類型**：Feature
+- **影響範圍**：ChatGPT Usage scraping, local Credit history persistence, service-card interactions, daily chart window, regression/DOM tests, documentation
+- **內容**：Merge visible Credit usage entries into per-service local history without duplicating known entries. Show the earliest known record date and a non-zero seven-day hover summary; clicking opens a daily green bar chart with a default 30-day range and adjustable dates. Opening the chart refreshes the service to merge new entries.
+- **關聯文件**：`app/ScrapeEngine.cs`, `app/CreditHistory.cs`, `app/CreditHistoryWindow.xaml`, `app/CreditHistoryWindow.xaml.cs`, `app/ServiceCard.xaml.cs`, `app/MainWindow.xaml.cs`, `tests/AIQuotaMonitor.RegressionTests/`, `docs/200_Functional_Requirements.md`, `docs/400_Function_List.md`
+- **操作人**：Kimi
+
 ## [20261111] Release v1.8.2
 - **類型**：Release
 - **影響範圍**：assembly/file/package versions, bilingual README, release notes, local and GitHub Windows x64 assets

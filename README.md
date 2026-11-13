@@ -16,16 +16,16 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 ![横向布局](preview_horizontal.png)
 
-## v1.8.2 更新
+## v1.8.4 更新
 
-- [下载 v1.8.2 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.2/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.2)。无需安装 .NET，运行时需要 WebView2 Runtime。
-- **Credits 上限可配置**：在「设置 → 服务 → 服务配置」的订阅信息网址下方新增 **Credits 上限**，默认 **62500**；每个 Codex 账号可独立设置。
-- **保存后立即重算**：已用量 = 上限 − 当前余额（最低 0），余额条按设置上限显示；余额超过上限时填满且不出现负消耗。
-- **界面按需显示**：该字段只对 ChatGPT/Codex Usage 服务显示，支持新旧地址；其他供应商不显示无关设置，配置以 `creditsLimit` 持久化。
+- [下载 v1.8.4 Windows x64 单文件](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.4/AIQuotaMonitor.exe) · [GitHub Release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.4)。无需安装 .NET，运行时需要 WebView2 Runtime。
+- **完整 Credit 日用量历史**：自动翻页读取全部流水并避免重复容器计数，卡片显示最早记录日期与近 7 天非零日用量；完整刷新会自动修复旧版三倍重复记录。
+- **独立按天图表**：点击 Credit 条打开用量窗口，默认近 30 天，可调整起止日期；同一天多笔流水正确合计。
+- **固定绿色样式**：Credit 余额条与每日柱形统一使用绿色，与普通配额状态色区分。
 
-验证：108 项回归、23 项 ChatGPT 页面检查及 9 项真实 WebView2 导航检查通过；设置保存、默认值、自定义比例与超额情况均有覆盖。中英文界面截图检查通过。测试使用本地等价页面与临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
+验证：122 项回归、25 项 ChatGPT 页面检查及 9 项真实 WebView2 导航检查通过，覆盖重复容器去重、完整分页、旧数据修复、截图每日合计、日期筛选和绿色 UI。测试使用本地等价页面与临时 profile，不读取真实账号 Cookie；真实账号在线验证尚未执行。
 
-完整说明见 [v1.8.2 Release Notes](docs/releases/v1.8.2.md)。旧地址修复见 [v1.8.1 Release Notes](docs/releases/v1.8.1.md)；Credits 功能见 [v1.8.0 Release Notes](docs/releases/v1.8.0.md)。
+完整说明见 [v1.8.4 Release Notes](docs/releases/v1.8.4.md)。Credits 上限设置见 [v1.8.2 Release Notes](docs/releases/v1.8.2.md)；旧地址修复见 [v1.8.1 Release Notes](docs/releases/v1.8.1.md)。
 
 ## 功能一览
 
@@ -48,7 +48,7 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 - **开机自启**（全局设置可选，当前用户 Run 注册表项）；窗口位置掉出所有屏幕时自动夹回/居中
 - WebView2 默认使用共享用户数据目录（`%LOCALAPPDATA%\AIQuotaMonitor\WebView2UserData`），**同一域名只需登录一次**；服务在设置里勾选「**独立会话（同站点多账号）**」后改用独立 profile 与独立 Cookie 存储，**同一供应商可挂多个账号**并排监控（各自登录一次）
 - **赠送重置次数**（Codex「Usage limit resets」、智谱「用量重置额度」）：卡片显示可用次数与最早到期时间（24 小时内变黄提醒）；智谱每条的到期时间在「重置管理」弹层里，抓取时自动点开读取再关闭；已过期的次数自动隐藏
-- **Codex Credits 监控**：在每周用量下显示当前余额、累计消耗与自动充值状态；每个服务可在「设置 → 服务 → 服务配置」中单独设置 **Credits 上限**（默认 **62500**），保存后立即重算，余额超过上限时不会出现负消耗
+- **Codex Credits 监控**：在每周用量下显示绿色余额条、累计消耗与自动充值状态；每个服务可单独设置 **Credits 上限**（默认 **62500**）。流水增量保存在本机，悬停查看近 7 天非零日用量，点击查看可调整日期范围的按天图表
 
 ## 快速开始
 
@@ -73,9 +73,9 @@ Windows 11 桌面小工具：把多个 AI 套餐的配额（5 小时用量、7 �
 
 页面显示 `23% left` 时，卡片自动换算为 **已用 77%**，不必额外开启反转。`Usage limit resets` 中的 Full / Partial reset 会自动扫描，卡片显示可用次数与最早到期日，悬停可查看每条信息。程序只读取重置信息，不会使用赠送的 Reset。
 
-`Credits` 区块也会自动扫描，监控条紧跟每周用量，显示余额、已用数量与自动充值状态。新版 `/settings/usage` 与旧版 `/#settings/Usage` 地址均支持，无需修改已有配置。官方没有提供 Credits 固定总额度，因此条形使用服务设置中的 **Credits 上限**（默认 **62500**）作为计算基准，而非官方百分比；已用量 = 上限 − 当前余额（最低 0）。该字段只对 Codex 服务显示，保存后立即生效。
+`Credits` 区块也会自动扫描，绿色监控条紧跟每周用量，显示余额、已用数量与自动充值状态。新版 `/settings/usage` 与旧版 `/#settings/Usage` 地址均支持，无需修改已有配置。条形使用服务设置中的 **Credits 上限**（默认 **62500**）作为计算基准，而非官方百分比；已用量 = 上限 − 当前余额（最低 0）。程序自动逐页读取 Credit 流水并保存到本机 `credit-history.json`，避免重复容器造成重复计数；完整翻页后会修复旧版已保存的重复记录。卡片显示最早记录日期与近 7 天非零日用量，点击可查看默认近 30 天、可调整日期范围的按天图表。
 
-从 1.8.1 升级到 1.8.2 后，已有 Codex 服务自动使用 Credits 上限 62500；需要调整时在「设置 → 服务」中修改并保存即可，新旧标准用量网址均无需新增配置。页面加载较慢、仍缺少 Reset 或 Credits 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额、Reset 列表和 Credits 则随每次成功抓取更新。
+升级无需迁移配置或历史。已有 Credits 上限保持不变；成功刷新后自动逐页更新流水并修复旧版重复记录，点击 Credit 条也会触发刷新。历史记录遵循「记录用量历史」开关，仅保存在本机。页面加载较慢、仍缺少 Reset 或 Credits 信息时，可提高服务的「额外等待秒数」后再次刷新。订阅信息的独立页面沿用六小时缓存，配额、Reset 列表和 Credits 则随每次成功抓取更新。
 
 ## 如何添加一个服务（完整示例）
 

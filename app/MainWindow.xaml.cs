@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, ServiceScrapeResult> _lastGood = new();
     /// <summary>已打开的历史窗口（key = 服务稳定 id），重开时聚焦而非重复打开。</summary>
     private readonly Dictionary<string, HistoryWindow> _historyWindows = new();
+    private readonly Dictionary<string, CreditHistoryWindow> _creditHistoryWindows = new();
     private DispatcherTimer? _timer;
     private DispatcherTimer? _uiTimer;
     private WinForms.NotifyIcon? _tray;
@@ -573,7 +574,7 @@ public partial class MainWindow : Window
         return snap;
     }
 
-    /// <summary>成功抓取后按规则各留一条历史样本（仅百分比，存本机；全局设置可关闭）。</summary>
+    /// <summary>成功抓取后保存配额百分比样本与 Codex Credit 流水；完整分页快照用于修复旧重复记录。</summary>
     private void RecordHistory(ServiceConfig svc, ServiceScrapeResult res)
     {
         if (!_config.RecordHistory || svc.Id == null) return;
@@ -594,6 +595,10 @@ public partial class MainWindow : Window
             });
         }
         HistoryStore.Append(samples);
+        if (res.Credits is { HistoryComplete: true } complete)
+            CreditHistoryStore.Replace(svc.Id, complete.History);
+        else if (res.Credits?.History.Count > 0)
+            CreditHistoryStore.Merge(svc.Id, res.Credits.History);
     }
 
     /// <summary>服务从正常变为「需要登录」时弹托盘气泡提醒（如阿里云会话级票据失效）。</summary>
@@ -651,6 +656,24 @@ public partial class MainWindow : Window
         _historyWindows[svc.Id] = win;
         win.Closed += (s, e) => _historyWindows.Remove(svc.Id);
         win.Show();
+    }
+
+    private void OnRequestCreditHistory(ServiceConfig svc)
+    {
+        if (_testMode || svc.Id == null) return;
+        if (_creditHistoryWindows.TryGetValue(svc.Id, out var open))
+        {
+            open.Activate();
+        }
+        else
+        {
+            var win = new CreditHistoryWindow(svc, _config) { Owner = this };
+            _creditHistoryWindows[svc.Id] = win;
+            win.Closed += (s, e) => _creditHistoryWindows.Remove(svc.Id);
+            win.Show();
+        }
+        _nextDue[svc] = DateTime.MinValue;
+        _ = RefreshDueAsync(waitForLock: true);
     }
 
     /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。
@@ -735,7 +758,8 @@ public partial class MainWindow : Window
             }
             if (d is ServiceCard card && card.Tag is ServiceConfig svc)
             {
-                if (rule != null) OnRequestHistory(svc, rule);
+                if (rule == ServiceCard.CreditHistoryMarker) OnRequestCreditHistory(svc);
+                else if (rule != null) OnRequestHistory(svc, rule);
                 return;
             }
         }

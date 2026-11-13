@@ -36,6 +36,10 @@
 - Each service shall have a configurable Credits limit defaulting to 62500. The setting appears in the service editor only for ChatGPT/Codex Usage URLs, persists as `creditsLimit`, and applies immediately after saving so different accounts can use different limits.
 - The bar shall represent the remaining share of the configured limit, and displayed consumption shall be `max(0, limit - balance)`; balances above the limit produce a full bar and never negative consumption. The configured limit shall not be presented as an official provider total.
 - A failed best-effort Credits scan shall retain the previous balance snapshot, and stale whole-card fallback shall include Credits.
+- Credit usage entries on every page of the ChatGPT Usage history shall be collected without multiplying entries exposed through repeated DOM containers. Partial scans shall merge incrementally; a complete paginated snapshot shall replace the service's local snapshot so previously duplicated entries are repaired. Stored entries shall survive application restarts.
+- The Credits row shall show the earliest known usage-history date, and its hover tooltip shall list daily totals for non-zero days within the most recent seven calendar days.
+- Clicking the Credits row shall open a dedicated daily-usage bar chart with a default 30-day range and adjustable start/end dates. Opening it shall refresh the service so all newly available entries can be collected into local history.
+- The Credits balance bar and daily-usage bars shall use a fixed green Credit color rather than the global quota-state colors.
 
 ## Window summoning
 

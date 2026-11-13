@@ -129,6 +129,39 @@ internal static class ChatGptDomSmoke
             await CheckCredits("credits-chinese", "<section><h2>Credits</h2><p>12,345 credits 剩余</p><div>自动充值 <input type='checkbox'></div></section>",
                 12345, false);
             await CheckCredits("credits-history-is-not-balance", creditHistory, null, null);
+            await Navigate("<section><p>50,167 credits remaining</p></section><section><h2>Credit usage history</h2><p>Nov 11, 2026</p><p>Codex</p><p>107 credits</p><p>Nov 10, 2026</p><p>23 credits</p></section>");
+            var creditsWithHistory = await engine.ScanCreditsAsync(wv, service, timeout.Token);
+            checks["credits-history-read"] = creditsWithHistory?.History.Count == 2 &&
+                creditsWithHistory.History.Sum(e => e.Credits) == 130;
+
+            await Navigate("""
+                <section><p>50,167 credits remaining</p><div>Automatic reload <input type='checkbox'></div></section>
+                <section><div><h2><span>Credit usage history</span></h2></div><div id='rows'></div>
+                <button id='previous'>Previous</button><button id='next'>Next</button><span id='page'></span></section>
+                <script>
+                var page = 0;
+                var pages = [
+                  "<p>Nov 13, 2026</p><p>Desktop (Work)</p><p>57 credits</p><p>Nov 13, 2026</p><p>Desktop (Work)</p><p>178 credits</p><p>Nov 13, 2026</p><p>Desktop (Work)</p><p>90 credits</p><p>Nov 13, 2026</p><p>Web</p><p>22 credits</p>",
+                  "<p>Nov 12, 2026</p><p>CLI</p><p>9 credits</p><p>Nov 12, 2026</p><p>Desktop (Work)</p><p>26 credits</p><p>Nov 12, 2026</p><p>Desktop (Work)</p><p>183 credits</p><p>Nov 12, 2026</p><p>Desktop (Work)</p><p>888 credits</p><p>Nov 12, 2026</p><p>Web</p><p>33 credits</p>",
+                  "<p>Nov 11, 2026</p><p>CLI</p><p>27 credits</p><p>Nov 11, 2026</p><p>CLI</p><p>282 credits</p><p>Nov 11, 2026</p><p>Desktop (Work)</p><p>14 credits</p><p>Nov 11, 2026</p><p>Desktop (Work)</p><p>107 credits</p><p>Nov 11, 2026</p><p>Desktop (Work)</p><p>1,567 credits</p><p>Nov 11, 2026</p><p>Web</p><p>19 credits</p>"
+                ];
+                function render() {
+                  document.getElementById('rows').innerHTML = pages[page];
+                  document.getElementById('next').disabled = page === pages.length - 1;
+                  document.getElementById('previous').disabled = page === 0;
+                  document.getElementById('page').textContent = (page * 10 + 1) + '-' + (page * 10 + 10) + ' of 63 usage events';
+                }
+                document.getElementById('next').onclick = function () { page++; render(); };
+                document.getElementById('previous').onclick = function () { page--; render(); };
+                render();
+                </script>
+                """);
+            var pagedCredits = await engine.ScanCreditsAsync(wv, service, timeout.Token);
+            var pagedDays = CreditHistoryStore.AggregateDaily(pagedCredits?.History ?? new List<CreditUsageEntry>());
+            checks["credits-history-pagination"] = pagedCredits?.HistoryComplete == true && pagedDays.Count == 3 &&
+                pagedDays.Single(d => d.Day == new DateTime(2026, 11, 13)).Credits == 347 &&
+                pagedDays.Single(d => d.Day == new DateTime(2026, 11, 12)).Credits == 1139 &&
+                pagedDays.Single(d => d.Day == new DateTime(2026, 11, 11)).Credits == 2016;
         }
         catch (Exception ex) { errorCode = ex.GetType().Name; }
         finally
@@ -137,7 +170,7 @@ internal static class ChatGptDomSmoke
             host?.Close();
         }
 
-        bool success = errorCode == null && checks.Count == 23 && checks.Values.All(v => v);
+        bool success = errorCode == null && checks.Count == 25 && checks.Values.All(v => v);
         string fullOutputPath = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullOutputPath)!);
         File.WriteAllText(fullOutputPath, JsonSerializer.Serialize(new { success, checks, errorCode },

@@ -21,6 +21,10 @@ var creditCardChecks = ServiceCardCreditsTests.Run();
 checks += creditCardChecks.Checks;
 failures.AddRange(creditCardChecks.Failures);
 foreach (var failure in creditCardChecks.Failures) Console.Error.WriteLine(failure);
+var creditHistoryChecks = CreditHistoryWindowTests.Run();
+checks += creditHistoryChecks.Checks;
+failures.AddRange(creditHistoryChecks.Failures);
+foreach (var failure in creditHistoryChecks.Failures) Console.Error.WriteLine(failure);
 var settingsCreditsChecks = SettingsCreditsTests.Run();
 checks += settingsCreditsChecks.Checks;
 failures.AddRange(settingsCreditsChecks.Failures);
@@ -302,6 +306,84 @@ if (creditsOn?.AutoReload != true || creditsZh?.Balance != 12345 || creditsZh.Au
     ScrapeEngine.ParseCreditsPayload("not-json", creditsNow) != null ||
     ScrapeEngine.ParseCreditsPayload("""{"balance":"not-a-number","auto":"off"}""", creditsNow) != null)
     failures.Add("Credits parsing must support on/unknown switch states and reject malformed balances.");
+
+checks++;
+var creditHistoryEntries = ScrapeEngine.ParseCreditHistoryPayload(
+    """{"history":["Credit usage history\nNov 11, 2026\nCodex\n107 credits\nNov 11, 2026\n23 credits\nNov 10, 2026\n0 credits"]}""", creditsNow);
+if (creditHistoryEntries.Count != 2 ||
+    creditHistoryEntries.Sum(e => e.Credits) != 130 ||
+    creditHistoryEntries.Any(e => e.Day != new DateTime(2026, 11, 11)))
+    failures.Add("Credit history parsing must keep dated positive usage entries and ignore zero-usage days.");
+
+checks++;
+const string accountAFirstPage = "Credit usage history\nNov 13, 2026\nDesktop (Work)\n57 credits\nNov 13, 2026\nDesktop (Work)\n178 credits\nNov 13, 2026\nDesktop (Work)\n90 credits\nNov 13, 2026\nWeb\n22 credits\nNov 12, 2026\nCLI\n9 credits";
+var duplicateCreditHistory = ScrapeEngine.ParseCreditHistoryPayload(
+    $$"""{"history":[{{System.Text.Json.JsonSerializer.Serialize(accountAFirstPage)}},{{System.Text.Json.JsonSerializer.Serialize(accountAFirstPage)}},{{System.Text.Json.JsonSerializer.Serialize(accountAFirstPage)}}]}""", creditsNow);
+var duplicateCreditDays = CreditHistoryStore.AggregateDaily(duplicateCreditHistory);
+if (duplicateCreditHistory.Count != 5 || duplicateCreditDays.Count != 2 ||
+    duplicateCreditDays.Single(d => d.Day == new DateTime(2026, 11, 13)).Credits != 347 ||
+    duplicateCreditDays.Single(d => d.Day == new DateTime(2026, 11, 12)).Credits != 9)
+    failures.Add("Repeated DOM captures of the same Credit history page must not multiply daily usage.");
+
+checks++;
+string creditHistoryPath = Path.Combine(Path.GetTempPath(), "AIQuotaMonitor.RegressionTests", "credit-history.json");
+var existingCreditEntry = new CreditUsageEntry { Key = "old", Day = new DateTime(2026, 11, 10), Credits = 50 };
+CreditHistoryStore.MergeAt(creditHistoryPath, "codex-a", new[] { existingCreditEntry });
+CreditHistoryStore.MergeAt(creditHistoryPath, "codex-a", new[]
+{
+    existingCreditEntry,
+    new CreditUsageEntry { Key = "new", Day = new DateTime(2026, 11, 11), Credits = 107 },
+});
+var persistedCreditEntries = CreditHistoryStore.QueryAt(creditHistoryPath, "codex-a");
+var persistedCreditDays = CreditHistoryStore.AggregateDaily(persistedCreditEntries);
+if (persistedCreditEntries.Count != 2 || persistedCreditDays.Count != 2 ||
+    persistedCreditDays[0].Day != new DateTime(2026, 11, 10) || persistedCreditDays[0].Credits != 50 ||
+    persistedCreditDays[1].Day != new DateTime(2026, 11, 11) || persistedCreditDays[1].Credits != 107)
+    failures.Add("Credit history must merge only new entries, persist them, and aggregate usage by day.");
+
+checks++;
+var legacyTriplicatedEntries = duplicateCreditHistory.SelectMany(entry => Enumerable.Range(0, 3).Select(occurrence =>
+    new CreditUsageEntry
+    {
+        Key = $"{entry.Key[..entry.Key.LastIndexOf('|')]}|{occurrence}",
+        Day = entry.Day,
+        Credits = entry.Credits,
+        Description = entry.Description,
+    })).ToList();
+CreditHistoryStore.MergeAt(creditHistoryPath, "codex-legacy", legacyTriplicatedEntries);
+CreditHistoryStore.ReplaceAt(creditHistoryPath, "codex-legacy", duplicateCreditHistory);
+var repairedCreditEntries = CreditHistoryStore.QueryAt(creditHistoryPath, "codex-legacy");
+var repairedCreditDays = CreditHistoryStore.AggregateDaily(repairedCreditEntries);
+if (repairedCreditEntries.Count != 5 ||
+    repairedCreditDays.Single(d => d.Day == new DateTime(2026, 11, 13)).Credits != 347 ||
+    repairedCreditDays.Single(d => d.Day == new DateTime(2026, 11, 12)).Credits != 9)
+    failures.Add("A complete Credit history snapshot must replace legacy triplicated entries instead of preserving them.");
+
+checks++;
+string[] accountARemainingPages =
+[
+    "Credit usage history\nNov 12, 2026\nDesktop (Work)\n26 credits\nNov 12, 2026\nDesktop (Work)\n183 credits\nNov 12, 2026\nDesktop (Work)\n888 credits\nNov 12, 2026\nWeb\n33 credits",
+    "Credit usage history\nNov 11, 2026\nCLI\n27 credits\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nCLI\n282 credits\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nCLI\n1 credit\nNov 11, 2026\nDesktop (Work)\n14 credits",
+    "Credit usage history\nNov 11, 2026\nDesktop (Work)\n107 credits\nNov 11, 2026\nDesktop (Work)\n1,567 credits\nNov 11, 2026\nWeb\n19 credits\nNov 10, 2026\nCLI\n8 credits\nNov 10, 2026\nCLI\n3 credits\nNov 10, 2026\nDesktop (Work)\n260 credits\nNov 10, 2026\nDesktop (Work)\n418 credits",
+    "Credit usage history\nNov 6, 2026\nCLI\n6,367 credits\nNov 6, 2026\nCLI\n1 credit\nNov 6, 2026\nDesktop (Work)\n110 credits\nNov 6, 2026\nDesktop (Work)\n39 credits",
+    "Credit usage history\nOct 21, 2026\nCLI\n4,733 credits\nOct 21, 2026\nCLI\n17 credits\nOct 21, 2026\nCLI\n5 credits\nOct 21, 2026\nDesktop (Work)\n137 credits\nOct 21, 2026\nDesktop (Work)\n93 credits",
+];
+var fullAccountAHistory = ScrapeEngine.ParseCreditHistoryPagePayloads(
+    accountARemainingPages.Prepend(accountAFirstPage).Select(page =>
+        $$"""{"history":[{{System.Text.Json.JsonSerializer.Serialize(page)}},{{System.Text.Json.JsonSerializer.Serialize(page)}},{{System.Text.Json.JsonSerializer.Serialize(page)}}]}"""), creditsNow);
+var fullAccountADays = CreditHistoryStore.AggregateDaily(fullAccountAHistory);
+var expectedAccountADays = new Dictionary<DateTime, long>
+{
+    [new DateTime(2026, 11, 13)] = 347,
+    [new DateTime(2026, 11, 12)] = 1139,
+    [new DateTime(2026, 11, 11)] = 2022,
+    [new DateTime(2026, 11, 10)] = 689,
+    [new DateTime(2026, 11, 6)] = 6517,
+    [new DateTime(2026, 10, 21)] = 4985,
+};
+if (fullAccountAHistory.Count != 34 || fullAccountADays.Count != expectedAccountADays.Count ||
+    expectedAccountADays.Any(expected => fullAccountADays.Single(d => d.Day == expected.Key).Credits != expected.Value))
+    failures.Add("All paginated screenshot events, including identical 1-credit events, must produce the correct daily totals.");
 
 checks++;
 var defaultCreditsConfig = new ServiceConfig();

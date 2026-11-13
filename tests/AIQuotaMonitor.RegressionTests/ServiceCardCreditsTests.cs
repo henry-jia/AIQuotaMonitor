@@ -5,6 +5,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AIQuotaMonitor;
 
 internal static class ServiceCardCreditsTests
@@ -38,7 +39,12 @@ internal static class ServiceCardCreditsTests
                         AutoReload = false,
                         FetchedAt = DateTimeOffset.Now,
                     },
-                }, new AppConfig());
+                }, new AppConfig(), new List<CreditDailyUsage>
+                {
+                    new() { Day = DateTime.Today.AddDays(-8), Credits = 23 },
+                    new() { Day = DateTime.Today.AddDays(-2), Credits = 0 },
+                    new() { Day = DateTime.Today.AddDays(-1), Credits = 107 },
+                });
 
                 Check(rows.Children.Count == 3, "Credits must add exactly one row after the weekly quota.");
                 var creditRow = rows.Children[2] as StackPanel;
@@ -51,9 +57,20 @@ internal static class ServiceCardCreditsTests
                     Check(texts.Contains("Credits balance"), "Credits row must have a localized balance label.");
                     Check(texts.Any(t => t.Contains("Used 12,333") && t.Contains("Auto-reload off")),
                         "Credits row must use the default 62500 limit and show automatic reload state.");
+                    Check(texts.Any(t => t.Contains(DateTime.Today.AddDays(-8).ToString("yyyy-MM-dd"))),
+                        "Credits consumption must show the earliest known local history date.");
+                    string tip = creditRow.ToolTip as string ?? "";
+                    Check(tip.Contains("107") && tip.Contains(DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")) &&
+                        !tip.Contains("23 credits"),
+                        "Credits hover must list only non-zero usage from the last seven days.");
+                    Check(Equals(creditRow.Tag, ServiceCard.CreditHistoryMarker),
+                        "Credits row must open the dedicated Credit history view when clicked.");
                     var bar = creditRow.Children.OfType<Grid>().FirstOrDefault(g => g.ColumnDefinitions.Count == 2);
                     Check(bar != null && Math.Abs(bar.ColumnDefinitions[0].Width.Value - 50167 * 100.0 / 62500) < 0.001,
                         "Credits bar must represent the remaining share of the configured limit.");
+                    var fill = bar?.Children.OfType<Border>().LastOrDefault();
+                    Check(fill?.Background is SolidColorBrush green && green.Color.ToString() == "#FF3FB950",
+                        "Credits bar must use the fixed green Credit color.");
                 }
 
                 service.CreditsLimit = 100000;

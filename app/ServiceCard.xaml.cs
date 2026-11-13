@@ -12,6 +12,8 @@ public partial class ServiceCard : UserControl
 {
     private static readonly Color WarnColor = (Color)ColorConverter.ConvertFromString("#E0A050");
     private static readonly Color DangerColor = (Color)ColorConverter.ConvertFromString("#E5534B");
+    private static readonly Color CreditsColor = (Color)ColorConverter.ConvertFromString("#3FB950");
+    internal const string CreditHistoryMarker = "\0credit-history";
 
     public event Action<ServiceConfig>? RequestLogin;
     public event Action<ServiceConfig>? RequestViewPage;
@@ -171,7 +173,7 @@ public partial class ServiceCard : UserControl
         });
     }
 
-    public void Bind(ServiceScrapeResult result, AppConfig cfg)
+    public void Bind(ServiceScrapeResult result, AppConfig cfg, IReadOnlyList<CreditDailyUsage>? creditHistoryOverride = null)
     {
         var svc = result.Service;
         _service = svc;
@@ -214,18 +216,20 @@ public partial class ServiceCard : UserControl
         }
         if (result.StaleError != null || result.StaleFromDisk)
             RowsPanel.Children.Add(BuildStaleWarning(result));
+        var creditDays = creditHistoryOverride ??
+            (svc.Id != null ? CreditHistoryStore.QueryDaily(svc.Id) : Array.Empty<CreditDailyUsage>());
         bool creditsAdded = false;
         foreach (var rule in result.Rules)
         {
             RowsPanel.Children.Add(WireRowClick(BuildRow(rule, _theme, cfg, result.Subscription?.ExpireAt?.LocalDateTime), rule.Label));
             if (!creditsAdded && result.Credits != null && PaceBaseline.WindowHours(rule.Label) == 7 * 24)
             {
-                RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, _theme));
+                RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, creditDays));
                 creditsAdded = true;
             }
         }
         if (!creditsAdded && result.Credits != null)
-            RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, _theme));
+            RowsPanel.Children.Add(BuildCreditsRow(result.Credits, svc.CreditsLimit, creditDays));
     }
 
     /// <summary>陈旧数据警告行：刷新失败显示「刷新失败——显示 HH:mm 的数据」（tooltip 完整错误）；
@@ -360,13 +364,18 @@ public partial class ServiceCard : UserControl
         if (_service != null) RequestViewPage?.Invoke(_service);
     }
 
-    private static FrameworkElement BuildCreditsRow(CreditBalanceInfo credits, long configuredLimit, ResolvedTheme theme)
+    private static FrameworkElement BuildCreditsRow(CreditBalanceInfo credits, long configuredLimit,
+        IReadOnlyList<CreditDailyUsage> history)
     {
         long limit = Math.Max(1, configuredLimit);
         long used = Math.Max(0, limit - credits.Balance);
         double remaining = Math.Clamp(credits.Balance * 100.0 / limit, 0, 100);
-        var barColor = credits.Balance == 0 ? theme.Critical : theme.Normal;
-        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 9) };
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(0, 0, 0, 9),
+            Tag = CreditHistoryMarker,
+            Cursor = System.Windows.Input.Cursors.Hand,
+        };
 
         var top = new Grid();
         top.Children.Add(new TextBlock
@@ -379,7 +388,7 @@ public partial class ServiceCard : UserControl
         top.Children.Add(new TextBlock
         {
             Text = credits.Balance.ToString("N0"),
-            Foreground = new SolidColorBrush(barColor),
+            Foreground = new SolidColorBrush(CreditsColor),
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -395,7 +404,7 @@ public partial class ServiceCard : UserControl
         grid.Children.Add(new Border
         {
             CornerRadius = new CornerRadius(3.5),
-            Background = new SolidColorBrush(barColor),
+            Background = new SolidColorBrush(CreditsColor),
         });
         panel.Children.Add(grid);
 
@@ -405,16 +414,34 @@ public partial class ServiceCard : UserControl
             false => I18n.T("credits_auto_reload_off"),
             null => I18n.T("credits_auto_reload_unknown"),
         };
+        string usedText = I18n.T("credits_used", used.ToString("N0"));
+        var earliest = history.Where(d => d.Credits > 0).OrderBy(d => d.Day).FirstOrDefault();
         panel.Children.Add(new TextBlock
         {
-            Text = I18n.T("credits_used", used.ToString("N0")) + " · " + auto,
+            Text = usedText + " · " + auto,
             Foreground = Ui.Brush("#8A8A95"),
             FontSize = 10.5,
             Margin = new Thickness(0, 3, 0, 0),
         });
-        panel.ToolTip = I18n.T("credits_tooltip",
+        if (earliest != null)
+            panel.Children.Add(new TextBlock
+            {
+                Text = I18n.T("credits_since", earliest.Day.ToString("yyyy-MM-dd")),
+                Foreground = Ui.Brush("#8A8A95"),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+        var tip = new System.Text.StringBuilder(I18n.T("credits_tooltip",
             credits.Balance.ToString("N0"), limit.ToString("N0"),
-            credits.FetchedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"));
+            credits.FetchedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")));
+        tip.AppendLine().AppendLine().Append(I18n.T("credits_recent_7d"));
+        var recent = history.Where(d => d.Credits > 0 && d.Day.Date >= DateTime.Today.AddDays(-6) && d.Day.Date <= DateTime.Today)
+            .OrderByDescending(d => d.Day).ToList();
+        if (recent.Count == 0) tip.AppendLine().Append(I18n.T("credits_recent_empty"));
+        foreach (var day in recent)
+            tip.AppendLine().Append(I18n.T("credits_recent_day", day.Day.ToString("yyyy-MM-dd"), day.Credits.ToString("N0")));
+        tip.AppendLine().AppendLine().Append(I18n.T("credits_open_history"));
+        panel.ToolTip = tip.ToString();
         System.Windows.Automation.AutomationProperties.SetName(panel,
             I18n.T("credits_balance") + " " + credits.Balance.ToString("N0"));
         return panel;

@@ -16,16 +16,16 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.8.2
+## What's new in v1.8.4
 
-- [Download v1.8.2 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.2/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.2). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **Configurable Credits limit**: a new **Credits limit** field sits below Subscription URL under **Settings → Services → Service**, defaulting to **62500** with independent values for each Codex account.
-- **Immediate recalculation after saving**: used = limit − balance (minimum 0), and the bar shows the remaining share of the configured limit. Balances above the limit fill the bar without negative consumption.
-- **Shown only where relevant**: the field appears only for ChatGPT/Codex Usage services using current or legacy URLs, remains hidden for other providers, and persists as `creditsLimit`.
+- [Download v1.8.4 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.4/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.4). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
+- **Complete daily Credit history**: every history page is collected without multiplying repeated DOM containers. The card shows the earliest known date and non-zero daily usage for the last seven days; a complete refresh repairs triplicated records saved by the previous version.
+- **Dedicated daily chart**: click the Credits bar to open a 30-day chart with adjustable start/end dates; multiple events on the same day are summed correctly.
+- **Fixed green styling**: the Credits balance bar and daily bars use green, distinct from ordinary quota-state colors.
 
-Validation: 108 regression checks, 23 ChatGPT page checks and 9 real WebView2 navigation checks passed, covering default/custom limits, settings save and visibility, bar ratios, and above-limit behavior. Chinese and English UI screenshots were inspected. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
+Validation: 122 regression checks, 25 ChatGPT page checks and 9 real WebView2 navigation checks passed, covering duplicate-container suppression, complete pagination, legacy-data repair, screenshot-derived daily totals, date filtering, and green UI. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
 
-See the complete [v1.8.2 release notes](docs/releases/v1.8.2.md). The legacy URL fix is documented in [v1.8.1](docs/releases/v1.8.1.md); Credits monitoring was introduced in [v1.8.0](docs/releases/v1.8.0.md).
+See the complete [v1.8.4 release notes](docs/releases/v1.8.4.md). Configurable Credits limits are documented in [v1.8.2](docs/releases/v1.8.2.md), and the legacy URL fix in [v1.8.1](docs/releases/v1.8.1.md).
 
 ## Features
 
@@ -49,7 +49,7 @@ See the complete [v1.8.2 release notes](docs/releases/v1.8.2.md). The legacy URL
 - **Launch at Windows startup** (optional in global settings, per-user Run registry entry); a saved window position that lands outside all screens is clamped back / centered
 - Shared WebView2 user-data folder (`%LOCALAPPDATA%\AIQuotaMonitor\WebView2UserData`) — **one login per domain**; a per-service **"Isolated session (multi-account)"** toggle gives that service its own profile and cookie store, so **multiple accounts at the same provider** can be monitored side by side (each signs in once); cookies (including session cookies) are saved after every scrape outcome, when the login window closes, and on graceful exit, using DPAPI encryption plus atomic replacement, then restored on startup
 - **Bonus usage resets** (Codex "Usage limit resets", GLM "用量重置额度"): the card shows the available count and earliest expiry (turns yellow within 24 hours); GLM's per-entry expiry lives behind the "重置管理" dialog, which the scraper opens and closes automatically; expired entries are hidden
-- **Codex Credits monitoring**: below weekly usage, see current balance, consumption, and automatic-reload state; each service has its own **Credits limit** under **Settings → Services → Service** (default **62500**), applied immediately after saving, with non-negative consumption above the limit
+- **Codex Credits monitoring**: a green balance bar below weekly usage shows balance, consumption, and automatic-reload state; each service has its own **Credits limit** (default **62500**). Entries persist locally, hovering shows non-zero daily usage for the last seven days, and clicking opens a daily chart with adjustable dates
 - **English / 中文 UI** (follows system by default, quick-switch via right-click menu)
 
 ## Quick start
@@ -75,9 +75,9 @@ Add one service per account in Settings and configure quota rules using the text
 
 When the page shows `23% left`, the card automatically displays **77% used**; no additional Invert setting is needed. Full / Partial reset grants under `Usage limit resets` are scanned automatically. The card shows the available count and earliest expiry, with individual grants in its tooltip. The app reads these grants without using them.
 
-The `Credits` section is scanned automatically too. Its monitor sits below weekly usage and shows balance, amount used, and automatic-reload state. Both the current `/settings/usage` and legacy `/#settings/Usage` URLs work without changing existing configurations. ChatGPT provides no fixed Credits total, so the bar uses the service's configurable **Credits limit** (default **62500**) rather than an official percentage. Used = limit − balance (minimum 0). The field is shown only for Codex services and applies immediately after saving.
+The `Credits` section is scanned automatically too. Its green monitor sits below weekly usage and shows balance, amount used, and automatic-reload state. Both current and legacy Usage URLs work without changing existing configurations. The bar uses the service's configurable **Credits limit** (default **62500**) rather than an official percentage; used = limit − balance (minimum 0). Credit history is collected across every page into local `credit-history.json`, without multiplying entries from repeated DOM containers. A complete crawl also repairs duplicates saved by the previous version. The card shows the earliest known date and non-zero daily usage for the last seven days; clicking opens a daily chart with a default 30-day range and adjustable dates.
 
-After upgrading from 1.8.1 to 1.8.2, existing Codex services automatically use a Credits limit of 62500. Adjust it under **Settings → Services** if needed; both current and legacy standard usage URLs need no additional configuration. If a slow page still omits bonus resets or Credits, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas, bonus-reset lists, and Credits update on every successful scrape.
+Upgrading requires no configuration or history migration. Existing Credits limits are preserved, successful refreshes collect every history page and repair legacy duplicates, and clicking the Credits row also triggers a refresh. History follows the Record usage history setting and stays on this machine. If a slow page omits bonus resets or Credits, increase the service's Extra wait seconds and refresh again. Separate subscription pages retain the six-hour cache, while quotas, bonus-reset lists, and Credits update on every successful scrape.
 
 ## Adding a service (worked example)
 
