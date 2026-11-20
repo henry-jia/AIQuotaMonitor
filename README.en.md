@@ -16,16 +16,14 @@ Most AI vendors expose **no quota API**, so the app works differently: give each
 
 ![Horizontal layout](preview_horizontal.png)
 
-## What's new in v1.8.4
+## What's new in v1.8.5
 
-- [Download v1.8.4 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.4/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.4). One self-contained exe; no .NET installation required. WebView2 Runtime is required.
-- **Complete daily Credit history**: every history page is collected without multiplying repeated DOM containers. The card shows the earliest known date and non-zero daily usage for the last seven days; a complete refresh repairs triplicated records saved by the previous version.
-- **Dedicated daily chart**: click the Credits bar to open a 30-day chart with adjustable start/end dates; multiple events on the same day are summed correctly.
-- **Fixed green styling**: the Credits balance bar and daily bars use green, distinct from ordinary quota-state colors.
+- [Download v1.8.5 for Windows x64](https://github.com/henry-jia/AIQuotaMonitor/releases/download/v1.8.5/AIQuotaMonitor.exe) · [GitHub release](https://github.com/henry-jia/AIQuotaMonitor/releases/tag/v1.8.5). This self-contained executable requires WebView2 Runtime.
+- **Kimi sign-in fix.** Cards configured with Kimi's subscription page now start sign-in on the Kimi homepage, where the sign-in button responds.
+- **Title-bar clock.** The upper-right clock shows local time in 24-hour format and updates each minute.
+- **Refresh scope and status.** A card's refresh button updates only that service. The status below the title names the service being refreshed or shows “Refreshing All”.
 
-Validation: 122 regression checks, 25 ChatGPT page checks and 9 real WebView2 navigation checks passed, covering duplicate-container suppression, complete pagination, legacy-data repair, screenshot-derived daily totals, date filtering, and green UI. Tests use local fixtures and temporary profiles without reading real account cookies. Live-account verification has not been performed.
-
-See the complete [v1.8.4 release notes](docs/releases/v1.8.4.md). Configurable Credits limits are documented in [v1.8.2](docs/releases/v1.8.2.md), and the legacy URL fix in [v1.8.1](docs/releases/v1.8.1.md).
+See the complete [v1.8.5 release notes](docs/releases/v1.8.5.md). Daily Codex Credits history is documented in the [v1.8.4 release notes](docs/releases/v1.8.4.md).
 
 ## Features
 
@@ -38,7 +36,7 @@ See the complete [v1.8.4 release notes](docs/releases/v1.8.4.md). Configurable C
 - Tiered **reset countdown warnings**: short windows (≤24h, e.g. 5h) turn yellow at ≤1h and orange-red at ≤30min; long windows (7d/30d) yellow at ≤24h and orange-red at ≤2h; **subscription expiry** yellow at ≤5 days, orange-red at ≤1 day
 - Vertical / horizontal layouts; window auto-sizes to content
 - Scheduled auto-refresh (default 5 min, global or per-service), sequential in background, never blocks the UI; **page-load timeout is configurable** (global settings, default 30s — raise it for slow-rendering sites)
-- Title-bar ⟳ force-refreshes all; **each card has its own ⟳** for just that service; clicks always queue (never silently dropped), with a "refreshing…" indicator
+- The title-bar ⟳ refreshes all enabled, unpaused services. **A card's ⟳ refreshes only that service.** The status names the active service or shows “Refreshing All”
 - **Pause scraping**: title-bar ⏸ pauses globally (also in right-click/tray menu), per-card ⏸ pauses one service — paused services are **never contacted** (useful during risk-control-sensitive periods), while countdowns and the baseline tick keep updating locally every minute; resume triggers an immediate catch-up scrape
 - Right-click menu + system tray: refresh / pause / always-on-top / layout / language / settings / show-hide / exit; **single left click on the tray icon always summons** (covered or hidden, it shows and raises to front, never hides — hide via the title-bar button or the menus)
 - **Taskbar presence** (default on, toggle in settings): while visible the widget takes a taskbar slot, so one click brings a covered window back; hiding to tray frees the slot

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +34,8 @@ public partial class MainWindow : Window
     /// <summary>已打开的历史窗口（key = 服务稳定 id），重开时聚焦而非重复打开。</summary>
     private readonly Dictionary<string, HistoryWindow> _historyWindows = new();
     private readonly Dictionary<string, CreditHistoryWindow> _creditHistoryWindows = new();
+    private ServiceConfig? _refreshingService;
+    private bool _refreshingAll;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _uiTimer;
     private WinForms.NotifyIcon? _tray;
@@ -186,6 +189,7 @@ public partial class MainWindow : Window
             card.RequestPauseToggle += OnCardPauseToggle;
             card.AltDragStarted += OnAltDragStarted;
             card.SetPaused(svc.Paused);
+            card.SetBusy(_refreshingService != null);
             card.Margin = _config.IsHorizontal ? new Thickness(0, 0, 10, 0) : new Thickness(0, 0, 0, 10);
             if (_config.IsHorizontal) card.Width = 240;
             else card.MinWidth = 250;
@@ -199,21 +203,32 @@ public partial class MainWindow : Window
 
     private void RestartTimer()
     {
-        if (_testMode) return;
-        _timer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
-        _timer.Tick -= Timer_Tick;
-        _timer.Tick += Timer_Tick;
-        _timer.Start();
-        // 界面刷新：基准竖线与剩余时间文字只依赖「重置时间+当前时间」，
-        // 每分钟用缓存结果重绘一次卡片，不触发任何网页抓取
-        _uiTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-        _uiTimer.Tick -= UiTimer_Tick;
-        _uiTimer.Tick += UiTimer_Tick;
-        _uiTimer.Start();
+        if (!_testMode)
+        {
+            _timer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            _timer.Tick -= Timer_Tick;
+            _timer.Tick += Timer_Tick;
+            _timer.Start();
+            _uiTimer ??= new DispatcherTimer();
+            _uiTimer.Tick -= UiTimer_Tick;
+            _uiTimer.Tick += UiTimer_Tick;
+        }
+        UpdateClock();
+        _uiTimer?.Start();
+    }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        ClockText.Text = now.ToString("HH:mm", CultureInfo.InvariantCulture);
+        if (_uiTimer != null)
+            _uiTimer.Interval = TimeSpan.FromMilliseconds(60_000 - now.Second * 1_000 - now.Millisecond);
     }
 
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
+        UpdateClock();
+        // 每分钟从缓存重绘基准线与倒计时，不触发网页抓取。
         foreach (var child in CardsPanel.Children)
         {
             if (child is ServiceCard card && card.Tag is ServiceConfig svc &&
@@ -352,54 +367,36 @@ public partial class MainWindow : Window
         ConfigStore.Save(_config);
     }
 
-    private async void Timer_Tick(object? sender, EventArgs e) => await RefreshDueAsync();
+    private async void Timer_Tick(object? sender, EventArgs e) => await RefreshAsync();
 
-    private async Task RefreshAllAsync()
-    {
-        if (_exiting) return;
-        foreach (var svc in _config.Services.Where(s => s.Enabled))
-            _nextDue[svc] = DateTime.MinValue;
-        // 用户主动点的刷新必须生效：等待刷新锁，不允许被静默丢弃
-        await RefreshDueAsync(waitForLock: true);
-    }
+    private Task RefreshAllAsync() => RefreshAsync(all: true);
 
-    /// <summary>后台顺序刷新到期服务，全程不阻塞 UI（WebView2 调用本就在 UI 线程上排队）。
-    /// waitForLock=true 时等待刷新锁（登录窗口关闭等场景不允许丢失本次刷新）。</summary>
-    private async Task RefreshDueAsync(bool waitForLock = false)
+    /// <summary>指定服务和全体刷新等待刷新锁，并跳过到期时间检查。定时刷新只处理到期服务。</summary>
+    private async Task RefreshAsync(ServiceConfig? target = null, bool all = false)
     {
         if (_testMode || _exiting) return;
-        bool lockHeld = false;
+        bool manual = all || target != null;
         try
         {
-            if (waitForLock)
-            {
+            if (manual)
                 await _refreshLock.WaitAsync(_shutdownCts.Token);
-                lockHeld = true;
-            }
-            else
-            {
-                lockHeld = await _refreshLock.WaitAsync(0, _shutdownCts.Token);
-                if (!lockHeld) return;
-            }
+            else if (!await _refreshLock.WaitAsync(0, _shutdownCts.Token))
+                return;
         }
         catch (OperationCanceledException) when (_exiting)
         {
             return;
         }
-        if (_exiting)
-        {
-            _refreshLock.Release();
-            return;
-        }
-        SetBusy(true);
         try
         {
-            // 全局暂停：不访问任何供应商（倒计时/基准线由 UiTimer 照常更新）
-            if (_config.ScrapingPaused) return;
-            foreach (var svc in _config.Services.Where(s => s.Enabled).ToList())
+            if (_exiting || _config.ScrapingPaused) return;
+            ServiceConfig[] services = target == null ? _config.Services.ToArray() : [target];
+            foreach (var requested in services)
             {
-                if (svc.Paused) continue; // 单服务暂停：跳过抓取
-                if (_nextDue.TryGetValue(svc, out var due) && DateTime.Now < due) continue;
+                if (_config.ScrapingPaused) return;
+                if (GetCurrentService(requested) is not { Enabled: true, Paused: false } svc) continue;
+                if (!manual && _nextDue.TryGetValue(svc, out var due) && DateTime.Now < due) continue;
+                SetBusy(svc, all);
                 _results.TryGetValue(svc, out var prev);
                 // 订阅信息变化慢：没有独立订阅页时在用量页顺带扫（每次都取）；
                 // 需跳转订阅页时按 6 小时缓存，避免每次刷新多一次导航
@@ -424,6 +421,15 @@ public partial class MainWindow : Window
                         Status = ScrapeStatus.Error,
                         ErrorMessage = ex.Message,
                     };
+                }
+                if (_exiting) return;
+                if (!_config.Services.Contains(svc))
+                {
+                    // 保存设置会替换实例。只有服务配置未变，才将进行中的结果交给新实例。
+                    var current = GetCurrentService(svc);
+                    if (current == null || ConfigStore.Fingerprint(current) != ConfigStore.Fingerprint(svc)) continue;
+                    svc = current;
+                    res.Service = current;
                 }
                 if (!fetchSub && prev?.Subscription != null)
                 {
@@ -455,34 +461,38 @@ public partial class MainWindow : Window
         }
         finally
         {
-            SetBusy(false);
-            _refreshLock.Release();
+            try { SetBusy(null); }
+            finally { _refreshLock.Release(); }
         }
     }
 
-    /// <summary>刷新进行中：禁用各刷新按钮并显示「刷新中…」，给用户明确反馈。</summary>
-    private bool _busy;
-
-    private void SetBusy(bool busy)
+    private ServiceConfig? GetCurrentService(ServiceConfig service)
     {
-        _busy = busy;
-        UpdateButtonStates();
-        foreach (var child in CardsPanel.Children)
-            if (child is ServiceCard c) c.SetBusy(busy);
+        if (_config.Services.Contains(service)) return service;
+        return service.Id == null ? null : _config.Services.FirstOrDefault(s => s.Id == service.Id);
     }
 
-    /// <summary>刷新按钮与状态文字：暂停时显示提示并禁用刷新；刷新中显示「刷新中…」。</summary>
+    private void SetBusy(ServiceConfig? service, bool all = false)
+    {
+        _refreshingService = service;
+        _refreshingAll = all;
+        UpdateButtonStates();
+        foreach (var child in CardsPanel.Children)
+            if (child is ServiceCard c) c.SetBusy(service != null);
+    }
+
+    /// <summary>显示全体刷新、当前服务或全局暂停，并同步刷新按钮状态。</summary>
     private void UpdateButtonStates()
     {
-        RefreshButton.IsEnabled = !_busy && !_config.ScrapingPaused;
+        RefreshButton.IsEnabled = _refreshingService == null && !_config.ScrapingPaused;
         if (_config.ScrapingPaused)
         {
             BusyText.Text = I18n.T("scraping_paused_hint");
             BusyText.Visibility = Visibility.Visible;
         }
-        else if (_busy)
+        else if (_refreshingService is { } service)
         {
-            BusyText.Text = I18n.T("refreshing");
+            BusyText.Text = _refreshingAll ? I18n.T("refreshing_all") : I18n.T("refreshing_service", service.Name);
             BusyText.Visibility = Visibility.Visible;
         }
         else
@@ -523,11 +533,7 @@ public partial class MainWindow : Window
         foreach (var child in CardsPanel.Children)
             if (child is ServiceCard card && ReferenceEquals(card.Tag, svc))
                 card.SetPaused(svc.Paused);
-        if (!svc.Paused)
-        {
-            _nextDue[svc] = DateTime.MinValue;
-            _ = RefreshDueAsync(waitForLock: true);
-        }
+        if (!svc.Paused) _ = RefreshAsync(svc);
     }
 
     internal static void MergeCredits(ServiceScrapeResult? previous, ServiceScrapeResult current)
@@ -631,12 +637,7 @@ public partial class MainWindow : Window
 
     // ---------- 登录 ----------
 
-    /// <summary>卡片级单独刷新：立即到期并入队，等待刷新锁执行（点击必生效）。</summary>
-    private void OnRequestRefresh(ServiceConfig svc)
-    {
-        _nextDue[svc] = DateTime.MinValue;
-        _ = RefreshDueAsync(waitForLock: true);
-    }
+    private void OnRequestRefresh(ServiceConfig svc) => _ = RefreshAsync(svc);
 
     private void OnRequestLogin(ServiceConfig svc) => OpenServiceWindow(svc, viewOnly: false);
 
@@ -672,8 +673,7 @@ public partial class MainWindow : Window
             win.Closed += (s, e) => _creditHistoryWindows.Remove(svc.Id);
             win.Show();
         }
-        _nextDue[svc] = DateTime.MinValue;
-        _ = RefreshDueAsync(waitForLock: true);
+        _ = RefreshAsync(svc);
     }
 
     /// <summary>打开内置浏览器窗口（登录或仅查看页面）；关闭后立即重新抓取该服务。
@@ -699,8 +699,7 @@ public partial class MainWindow : Window
                             MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                     if (_exiting) return;
-                    _nextDue[svc] = DateTime.MinValue;
-                    await RefreshDueAsync(waitForLock: true);
+                    await RefreshAsync(svc);
                 }
                 catch (OperationCanceledException) when (_exiting) { }
                 catch (Exception ex)
@@ -810,6 +809,7 @@ public partial class MainWindow : Window
     /// 不用 IsActive 判断「在最前就隐藏」——托盘弹层/新任务栏点击会抢焦点，该信号不可靠。</summary>
     private void SummonWindow()
     {
+        UpdateClock();
         if (!IsVisible) Show();
         // 置前：Topmost 先置真再回配置值——非置顶窗口也能越过当前前台窗口（仅 Activate 不保证）
         Activate();
@@ -1100,7 +1100,7 @@ public partial class MainWindow : Window
             _nextDue.Clear();
             foreach (var kv in carriedDue) _nextDue[kv.Key] = kv.Value;
             ApplyConfig();
-            _ = RefreshDueAsync(); // 无到期时间的服务（新增/变更）会立即刷新，其余跳过
+            _ = RefreshAsync(); // 无到期时间的服务（新增/变更）会立即刷新，其余跳过
         }
     }
 

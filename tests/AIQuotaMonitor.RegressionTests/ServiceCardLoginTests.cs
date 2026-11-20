@@ -12,6 +12,25 @@ internal static class ServiceCardLoginTests
     {
         int checks = 0;
         var failures = new List<string>();
+        const string kimiSubscription = "https://www.kimi.com/membership/subscription";
+        Check(LoginWindow.GetStartUrl(kimiSubscription, viewOnly: false) == "https://www.kimi.com/",
+            "Kimi sign-in must start on the homepage to avoid the subscription page's logged-out redirect.");
+        Check(LoginWindow.GetStartUrl("https://kimi.com/membership/subscription/?source=settings", viewOnly: false) == "https://kimi.com/",
+            "Kimi sign-in must also handle the bare domain, a trailing slash and query parameters.");
+        Check(LoginWindow.GetStartUrl(kimiSubscription, viewOnly: true) == kimiSubscription,
+            "Viewing Kimi's quota page must still open the configured subscription URL.");
+        foreach (var url in new[]
+        {
+            "https://www.kimi.com/code/console",
+            "https://www.kimi.com.example/membership/subscription",
+            "https://example.com/membership/subscription",
+            "https://chatgpt.com/#settings/Usage",
+        })
+        {
+            Check(LoginWindow.GetStartUrl(url, viewOnly: false) == url,
+                $"Sign-in must keep the configured URL for {url}.");
+        }
+
         var thread = new Thread(() =>
         {
             var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };

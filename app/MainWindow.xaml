@@ -45,16 +45,19 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <!-- 左側可壓縮：窄窗口時标题省略号，避免与右侧按钮重叠 -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                         <TextBlock x:Name="TitleText" Text="AI Quota Monitor" Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="VersionText" Text="" Foreground="#8A8A95" FontSize="10.5"
                                    Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="AIQuotaMonitor"/>
-                        <TextBlock x:Name="BusyText" Text="Refreshing…" Foreground="#8A8A95" FontSize="10.5"
-                                   Margin="8,0,0,0" Visibility="Collapsed"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock x:Name="ClockText" Foreground="#B9B9C4" FontSize="10.5"
+                                   Typography.NumeralAlignment="Tabular" VerticalAlignment="Center" Margin="8,0,4,0"/>
                         <Button x:Name="PinButton" Style="{StaticResource IconButtonStyle}" Content="&#xE718;"
                                 FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Pin on top"
                                 Margin="4,0,0,0" Click="PinButton_Click"/>
@@ -70,6 +73,9 @@
                                 FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" ToolTip="Hide window (tray icon stays)"
                                 Margin="4,0,0,0" Click="HideButton_Click"/>
                     </StackPanel>
+                    <TextBlock x:Name="BusyText" Grid.Row="1" Grid.ColumnSpan="2" Foreground="#B9B9C4" FontSize="10.5"
+                               MaxWidth="240" HorizontalAlignment="Left" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Visibility="Collapsed"/>
                 </Grid>
                 <StackPanel x:Name="CardsPanel" Margin="0,6,0,0"/>
             </StackPanel>
